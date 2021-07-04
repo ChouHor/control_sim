@@ -78,9 +78,11 @@ class TransferFunc(object):
         self.output_array[0] = self.output
         return self.output
 
-    def bode_plot(self, low, up):
-        # f = 10 ** np.arange(low, up, 0.01)
-        f = np.arange(low, up, 1)
+    def reset(self):
+        self.__init__(self.nom, self.den, self.dt)
+
+    def bode(self, f, plot=False):
+        # f = np.arange(low, up, 1)
         omega = 2 * np.pi * f
         nom = den = 0
         for i in range(len(self.nom)):
@@ -93,18 +95,21 @@ class TransferFunc(object):
         gain = 20 * np.log10(np.abs(nom / den))
         phase = np.angle(nom / den, deg=True)
 
-        fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+        if plot:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 4))
 
-        axes[0].set_xlabel("f/[Hz]")
-        axes[0].set_ylabel("Gain/[dB]")
-        axes[0].semilogx(f, gain)
+            axes[0].set_xlabel("f/[Hz]")
+            axes[0].set_ylabel("Gain/[dB]")
+            axes[0].semilogx(f, gain)
 
-        axes[1].set_xlabel("f/[Hz]")
-        axes[1].set_ylabel("Phase/[deg]")
-        axes[1].semilogx(f, phase)
+            axes[1].set_xlabel("f/[Hz]")
+            axes[1].set_ylabel("Phase/[deg]")
+            axes[1].semilogx(f, phase)
 
-        plt.suptitle("Bode plot")
-        plt.show()
+            plt.suptitle("Bode plot")
+            plt.show()
+
+        return f, (nom / den)
 
 
 def dft_slow(src_data):
@@ -223,7 +228,7 @@ def fft(x, dt):
     return f_pad, fw_pad
 
 
-def chirp_iden(sys, start_freq, end_freq, t):
+def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     dt = sys.dt
     t_list = np.arange(0, t, dt)
     u = np.sin(
@@ -238,7 +243,7 @@ def chirp_iden(sys, start_freq, end_freq, t):
         a = np.append(a, a_current)
 
     a = np.array(a, dtype=float)
-    # a = np.pad(np.diff(p, 2), (0, 2))
+    # a = np.pad(np.diff(pos, 2), (0, 2))
     y = a
 
     u_detrend = u - np.mean(u)
@@ -251,24 +256,25 @@ def chirp_iden(sys, start_freq, end_freq, t):
     start_point = int(start_freq / resolution)
     end_point = int(end_freq / resolution)
 
-    plt.figure(figsize=(12, 4))
-    plt.subplot(121)
-    plt.xscale("log")
-    plt.plot(
-        f_u[start_point:end_point],
-        20
-        * np.log10(
-            np.abs(fw_y)[start_point:end_point] / np.abs(fw_u)[start_point:end_point]
-        ),
-    )
+    fw = fw_y / fw_u
+    if plot:
+        plt.figure(figsize=(12, 4))
+        plt.subplot(121)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            20 * np.log10(np.abs(fw)[start_point:end_point]),
+        )
 
-    plt.subplot(122)
-    plt.xscale("log")
-    plt.plot(
-        f_u[start_point:end_point],
-        20 * np.angle((fw_y)[start_point:end_point] / (fw_u)[start_point:end_point]),
-    )
-    plt.show()
+        plt.subplot(122)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            np.angle(fw[start_point:end_point], deg=True),
+        )
+        plt.show()
+
+    return f_u[1:end_point], fw[1:end_point]
 
     # plt.figure(1)
     # plt.plot(t_list, u)
