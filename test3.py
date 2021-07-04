@@ -4,7 +4,7 @@ from scipy import signal
 import matplotlib.pyplot as plt
 
 
-b, a = signal.butter(6, 100, "low", analog=True)
+b, a = signal.butter(8, 1000, "low", analog=True)
 w, h = signal.freqs(b, a)
 plt.semilogx(w, 20 * np.log10(abs(h)))
 plt.title("Butterworth filter frequency response")

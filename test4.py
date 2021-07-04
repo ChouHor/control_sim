@@ -91,6 +91,7 @@ cl_response = np.array(cl_response_mat * set_point.reshape(-1, 1), dtype=float).
     -1
 )
 fig, axs = plt.subplots()
+axs.plot(set_point, label="cmd")
 axs.plot(cl_response, label="closed loop set point response")
 axs.legend(loc="upper right")
 

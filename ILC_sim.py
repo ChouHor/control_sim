@@ -4,6 +4,7 @@ from common import *
 from control_math import *
 from sympy import solve
 from sympy.abc import a, b, c
+from scipy import signal
 
 
 res_freq = 200
@@ -45,7 +46,6 @@ controller_kp = TransferFunc([kp], [1], DT)
 controller_ki = TransferFunc([ki], [1, 0], DT)
 controller_kd = TransferFunc([kd, 0], [1], DT)
 controller_tf_model = controller_kp + controller_ki + controller_kd
-controller_tf_model.bode(np.arange(1, 2000), plot=True)
 
 # controller_tf_model = TransferFunc([50 / np.pi, 100], [1 / 600 / np.pi, 1], DT)
 # controller_tf_model.bode(np.arange(1, 2000), plot=True)
@@ -63,7 +63,7 @@ process_sensitivity_tf_model = plant_pos_tf / (
 # process_sensitivity_tf_model.bode(np.arange(1, 200), plot=True)
 # aa
 # SPG
-T = 0.5
+T = 0.1
 y1 = 1
 sol = solve(
     [
@@ -117,15 +117,23 @@ A = np.identity(ps_response_mat.shape[0]) - ps_pinv_mat * ps_response_mat
 U, sigma, VT = np.linalg.svd(A)
 print(max(sigma))
 
+
+Q_num, Q_den = signal.butter(4, 2000, "low", analog=True)
+# Q_num, Q_den = ([1], [1])
+Q_tf1 = TransferFunc(Q_num, Q_den, DT)
+Q_tf2 = TransferFunc(Q_num, Q_den, DT)
+
 # iteration
-current_ILC_input = np.zeros_like(set_point)
-next_ILC_input = np.zeros_like(set_point)
-for k in range(5):
+current_ILC = np.zeros_like(set_point)
+next_ILC = np.zeros_like(set_point)
+for k in range(10):
     pos = np.array([0])
     err = np.array([])
     pid_output = np.array([])
 
-    current_ILC_input = next_ILC_input
+    current_ILC = next_ILC
+    Q_tf1.reset()
+    Q_tf2.reset()
     plant_pos_tf.reset()
     controller_tf_model.reset()
     for i in range(len(set_point)):
@@ -135,21 +143,59 @@ for k in range(5):
         current_pid_output = controller_tf_model.response(current_err)
         pid_output = np.append(pid_output, current_pid_output)
 
-        plant_input = current_pid_output + current_ILC_input[i]
-        # next_ILC_input[i] = plant_input
+        plant_input = current_pid_output + current_ILC[i]
         p_current = plant_pos_tf.response(plant_input)  # +random.normal()/4/5
         pos = np.append(pos, p_current)
 
-    err = hamm(np.array(err, dtype=float))
+    err = np.array(err, dtype=float)
     pid_output = np.array(pid_output, dtype=float)
+
+    # current plant in as next ffc
+    Le = np.zeros_like(set_point)
+    Le_after_Q = np.zeros_like(set_point)
+    current_ILC_after_Q = np.zeros_like(set_point)
+    next_ILC = current_ILC + pid_output
+
+    # inverse plant
     # Le = np.array(plant_pinv_mat * err.reshape(-1, 1)).reshape(-1)
-    Le = np.array(ps_pinv_mat * err.reshape(-1, 1)).reshape(-1)
-    next_ILC_input = current_ILC_input + Le  # paper method
-    # next_ILC_input = current_ILC_input + pid_output  # OK
+    # Le_after_Q = np.zeros_like(set_point)
+    # current_ILC_after_Q = np.zeros_like(set_point)
+    # next_ILC = current_ILC + pid_output + Le
+
+    # inverse ps (paper method)
+    # Le = np.array(ps_pinv_mat * err.reshape(-1, 1)).reshape(-1)
+    #
+    # # without Q
+    # Le_after_Q = np.zeros_like(set_point)
+    # current_ILC_after_Q = np.zeros_like(set_point)
+    # next_ILC = current_ILC + Le
+
+    # with Q
+    # next_ILC_input_before_Q = current_ILC + Le
+    # current_ILC_after_Q = np.array([])
+    # Le_after_Q = np.array([])
+    # next_ILC = np.array([])
+    #
+    # for i in range(len(set_point)):
+    #     # input_sig = next_ILC_input_before_Q[i]
+    #     # current_after_Q = Q_tf.response(input_sig)
+    #     # next_ILC = np.append(next_ILC, current_after_Q)
+    #     input_sig = current_ILC[i]
+    #     current_current_ILC_after_Q = Q_tf1.response(input_sig)
+    #     current_ILC_after_Q = np.append(
+    #         current_ILC_after_Q, current_current_ILC_after_Q
+    #     )
+    #     input_sig = Le[i]
+    #     current_Le_after_Q = Q_tf2.response(input_sig)
+    #     Le_after_Q = np.append(Le_after_Q, current_Le_after_Q)
+    #
+    # current_ILC_after_Q = np.array(current_ILC_after_Q, dtype=float)
+    # Le_after_Q = np.array(Le_after_Q, dtype=float)
+    # next_ILC = current_ILC_after_Q + Le_after_Q
 
     pos = np.array(pos, dtype=float)[1:]
     # plt.figure(figsize=(6, 5))
-    fig, axs = plt.subplots(3, 2)
+    fig, axs = plt.subplots(4, 2)
     fig.suptitle("Iteration " + str(k + 1))
     axs[0, 0].plot(set_point, label="cmd")
     axs[0, 0].plot(pos, label="pos")
@@ -158,10 +204,14 @@ for k in range(5):
     axs[0, 1].legend(loc="upper right")
     axs[1, 0].plot(pid_output, label="pid out")
     axs[1, 0].legend(loc="upper right")
-    axs[1, 1].plot(current_ILC_input, label="f_k")
+    axs[1, 1].plot(current_ILC, label="f_k")
     axs[1, 1].legend(loc="upper right")
-    axs[2, 0].plot(Le, label="Le")
+    axs[2, 0].plot(Le, label="Le b4 Q")
     axs[2, 0].legend(loc="upper right")
-    axs[2, 1].plot(next_ILC_input, label="f_k+1")
+    axs[2, 1].plot(Le_after_Q, label="Le aft Q")
     axs[2, 1].legend(loc="upper right")
+    axs[3, 0].plot(current_ILC_after_Q, label="f_k aft Q")
+    axs[3, 0].legend(loc="upper right")
+    axs[3, 1].plot(next_ILC, label="f_k+1 aft Q")
+    axs[3, 1].legend(loc="upper right")
     plt.show()

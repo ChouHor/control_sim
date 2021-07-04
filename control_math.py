@@ -20,8 +20,8 @@ class TransferFunc(object):
         nom_d, den_d = cancel(simplify(_nom_d / _den_d)).as_numer_denom()
         self.nom_d = nom_d.as_poly(z).all_coeffs()
         self.den_d = den_d.as_poly(z).all_coeffs()
-        self.input_array = np.zeros_like(self.nom_d)
-        self.output_array = np.zeros_like(self.den_d)
+        self.input_array = np.zeros_like(self.nom_d, dtype=float)
+        self.output_array = np.zeros_like(self.den_d, dtype=float)
         self.output = 0
 
     def __get_operation_coeffs(self, other):
