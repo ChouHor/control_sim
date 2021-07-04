@@ -32,7 +32,7 @@ from chirp_data import *
 #     beta1 = 0.1
 #     beta2 = 0.1
 #
-#     plant_tf = TransferFunc(
+#     plant_pos_tf = TransferFunc(
 #         res_omega ** 2
 #         / anti_res_omega ** 2
 #         * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2]),
@@ -50,22 +50,22 @@ from chirp_data import *
 #
 #     controller_tf.bode_plot(-1, 2)
 #
-#     p = np.array([0])
+#     pos = np.array([0])
 #     v = np.array([0])
 #     a = np.array([])
 #
 #     for i in range(len(u)):
 #         input_sig = u[i]
-#         a_current = plant_tf.response(input_sig)  # +random.normal()/4/5
+#         a_current = plant_pos_tf.response(input_sig)  # +random.normal()/4/5
 #         a = np.append(a, a_current)
 #         v_current = v[-1] + a_current * (1 / dt)
 #         v = np.append(v, v_current)
-#         p_current = p[-1] + v_current * (1 / dt)  # +random.normal()/4/100
-#         p = np.append(p, p_current)
+#         p_current = pos[-1] + v_current * (1 / dt)  # +random.normal()/4/100
+#         pos = np.append(pos, p_current)
 #
-#     p = np.delete(p, 0)
+#     pos = np.delete(pos, 0)
 #     v = np.delete(v, 0)
-#     y = np.array(p, dtype=float)
+#     y = np.array(pos, dtype=float)
 #
 #     y = np.pad(np.diff(y, 2), (2, 0), constant_values=0)
 #
