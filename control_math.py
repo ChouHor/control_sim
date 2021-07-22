@@ -1,6 +1,6 @@
 import numpy as np
 from sympy.core import symbols
-from sympy import simplify, cancel, Poly, fraction
+from sympy import simplify, cancel, Poly, fraction, solve
 from scipy.linalg import hankel
 from scipy.linalg import toeplitz
 import matplotlib.pyplot as plt
@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 class TransferFunc(object):
     def __init__(self, nom, den, dt):
-        self.nom = nom
-        self.den = den
+        self.nom = np.array(nom)
+        self.den = np.array(den)
         self.dt = dt
         z = symbols("z")
         _nom_d = _den_d = 0
@@ -68,6 +68,15 @@ class TransferFunc(object):
         res_sys = TransferFunc(res_nom, res_den, self.dt)
         return res_sys
 
+    def zpk(self):
+        s = symbols("s")
+        self_nom = Poly(self.nom, s).as_expr(s)
+        self_den = Poly(self.den, s).as_expr(s)
+        z = np.array(solve(self_nom, s))
+        p = np.array(solve(self_den, s))
+        k = (self_nom / self_den).subs(s, 0)
+        return z, p, k
+
     def response(self, input_sig):
         self.input_array = np.delete(np.insert(self.input_array, 0, input_sig), -1)
         self.output_array = np.delete(np.insert(self.output_array, 0, 0), -1)
@@ -110,6 +119,16 @@ class TransferFunc(object):
             plt.show()
 
         return f, (nom / den)
+
+
+def dft(freq, data, dt):
+    data = np.array(data)
+    t = np.array(range(len(data))) * dt
+    cos_wave = np.cos(2 * np.pi * freq * t)
+    sine_wave = np.sin(2 * np.pi * freq * t)
+    real = np.sum(np.multiply(data, cos_wave))
+    imagine = np.sum(np.multiply(data, sine_wave))
+    return real + 1j * imagine
 
 
 def dft_slow(src_data):
@@ -228,6 +247,17 @@ def fft(x, dt):
     return f_pad, fw_pad
 
 
+def pole_placement(dB, bandwidth, alpha, servo_freq):
+    damping = 0.707
+    ratio = 0.5
+    k = 10 ** (dB / 20)
+    omega = 2 * np.pi * bandwidth
+    kp = (1 + 2 * damping * ratio) * omega ** 2 / k
+    ki = ratio * omega ** 3 / k / servo_freq
+    kd = (2 * damping * omega + ratio * omega - alpha) / k * servo_freq
+    return kp, ki, kd
+
+
 def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     dt = sys.dt
     t_list = np.arange(0, t, dt)
@@ -251,6 +281,8 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
 
     f_u, fw_u = fft(half_hamm(u_detrend), dt)
     f_y, fw_y = fft(half_hamm(y_detrend), dt)
+    # f_u, fw_u = fft(u_detrend, dt)
+    # f_y, fw_y = fft(y_detrend, dt)
 
     resolution = 1 / dt / len(f_u)
     start_point = int(start_freq / resolution)
@@ -258,7 +290,7 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
 
     fw = fw_y / fw_u
     if plot:
-        plt.figure(figsize=(12, 4))
+        plt.figure(figsize=(14, 4))
         plt.subplot(121)
         plt.xscale("log")
         plt.plot(
