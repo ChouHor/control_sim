@@ -27,20 +27,20 @@ plant_acc_tf = TransferFunc(
 a2p_tf = TransferFunc([1], [1, 0, 0], DT)
 plant_pos_tf = a2p_tf * plant_acc_tf
 
-# plant_acc_tf.bode(1, 1000)
+# plant_acc_tf.bode(np.arange(1, 250), plot=False)
 
-# system identification
-# f, fw_acc = chirp_iden(plant_acc_tf, 1, 5000, 0.5)
+# # system identification
+# f, fw_acc = chirp_iden(plant_acc_tf, 1, 250, 1, plot=False)
 #
 # f, fw_a2p = a2p_tf.bode(f)
 #
 # fw_pos = fw_acc * fw_a2p
 
-
 # # Controller parameters
-kp = 1000
-ki = 0.1
-kd = 1000
+kp, ki, kd = pole_placement(0, 20, 10, SERVO_FREQ)
+# kp = 1000
+# ki = 0.1
+# kd = 1000
 
 controller_kp = TransferFunc([kp], [1], DT)
 controller_ki = TransferFunc([ki], [1, 0], DT)
@@ -62,9 +62,13 @@ process_sensitivity_tf_model = plant_pos_tf / (
 )
 
 ps_inv_tf_model = identity_tf / process_sensitivity_tf_model
-# process_sensitivity_tf_model.bode(np.arange(1, 200), plot=True)
-# aa
-# SPG
+
+ps_inv_tf_model.zpk()
+# nom = ps_inv_tf_model.nom
+# den = ps_inv_tf_model.den
+# z, p, k = signal.tf2zpk(nom, den)
+
+"""Simulation"""
 T = 0.1
 y1 = 1
 sol = solve(
@@ -81,44 +85,6 @@ t = np.linspace(0, T, int(SERVO_FREQ * T))
 set_point = sol[a] * t ** 5 + sol[b] * t ** 4 + sol[c] * t ** 3
 # set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T / 2)))
 # t = t2
-
-# get unit response
-unit_input = np.zeros_like(t)
-unit_input[0] = 1
-plant_unit_response = np.array([])
-# get plant response
-for i in range(len(unit_input)):
-    input_sig = unit_input[i]
-    p_current = plant_pos_tf.response(input_sig)  # +random.normal()/4/5
-    plant_unit_response = np.append(plant_unit_response, p_current)
-plant_unit_response = np.array(plant_unit_response)
-fig, axs = plt.subplots()
-axs.plot(plant_unit_response, label="plant unit response")
-axs.legend(loc="upper right")
-plant_response_mat = np.mat(
-    toeplitz(plant_unit_response, np.zeros_like(plant_unit_response)), dtype=float
-)
-plant_pinv_mat = np.linalg.pinv(plant_response_mat)
-
-# get process sensitivity response
-ps_unit_response = np.array([])
-for i in range(len(unit_input)):
-    input_sig = unit_input[i]
-    p_current = process_sensitivity_tf_model.response(input_sig)  # +random.normal()/4/5
-    ps_unit_response = np.append(ps_unit_response, p_current)
-ps_unit_response = np.array(ps_unit_response)
-fig, axs = plt.subplots()
-axs.plot(ps_unit_response, label="process sensitivity unit response")
-axs.legend(loc="upper right")
-ps_response_mat = np.mat(
-    toeplitz(ps_unit_response, np.zeros_like(ps_unit_response)), dtype=float
-)
-ps_pinv_mat = np.linalg.pinv(ps_response_mat)
-
-A = np.identity(ps_response_mat.shape[0]) - ps_pinv_mat * ps_response_mat
-U, sigma, VT = np.linalg.svd(A)
-print(max(sigma))
-
 
 Q_nom, Q_den = signal.butter(4, 2000, "low", analog=True)
 # Q_nom, Q_den = ([1], [1])
@@ -150,6 +116,8 @@ for k in range(4):
         pos = np.append(pos, p_current)
 
     err = np.array(err, dtype=float)
+    err = np.roll(err, -1)
+    err[-1] = 0
     pid_output = np.array(pid_output, dtype=float)
 
     # current plant in as next ffc
@@ -175,32 +143,32 @@ for k in range(4):
     Le = np.array(Le, dtype=float)
 
     # without Q
-    Le_after_Q = np.zeros_like(set_point)
-    current_ILC_after_Q = np.zeros_like(set_point)
-    next_ILC = current_ILC + Le
+    # Le_after_Q = np.zeros_like(set_point)
+    # current_ILC_after_Q = np.zeros_like(set_point)
+    # next_ILC = current_ILC + Le
 
     # with Q
-    # next_ILC_input_before_Q = current_ILC + Le
-    # current_ILC_after_Q = np.array([])
-    # Le_after_Q = np.array([])
-    # next_ILC = np.array([])
-    #
-    # for i in range(len(set_point)):
-    #     # input_sig = next_ILC_input_before_Q[i]
-    #     # current_after_Q = Q_tf.response(input_sig)
-    #     # next_ILC = np.append(next_ILC, current_after_Q)
-    #     input_sig = current_ILC[i]
-    #     current_current_ILC_after_Q = Q_tf1.response(input_sig)
-    #     current_ILC_after_Q = np.append(
-    #         current_ILC_after_Q, current_current_ILC_after_Q
-    #     )
-    #     input_sig = Le[i]
-    #     current_Le_after_Q = Q_tf2.response(input_sig)
-    #     Le_after_Q = np.append(Le_after_Q, current_Le_after_Q)
-    #
-    # current_ILC_after_Q = np.array(current_ILC_after_Q, dtype=float)
-    # Le_after_Q = np.array(Le_after_Q, dtype=float)
-    # next_ILC = current_ILC_after_Q + Le_after_Q
+    next_ILC_input_before_Q = current_ILC + Le
+    current_ILC_after_Q = np.array([])
+    Le_after_Q = np.array([])
+    next_ILC = np.array([])
+
+    for i in range(len(set_point)):
+        # input_sig = next_ILC_input_before_Q[i]
+        # current_after_Q = Q_tf.response(input_sig)
+        # next_ILC = np.append(next_ILC, current_after_Q)
+        input_sig = current_ILC[i]
+        current_current_ILC_after_Q = Q_tf1.response(input_sig)
+        current_ILC_after_Q = np.append(
+            current_ILC_after_Q, current_current_ILC_after_Q
+        )
+        input_sig = Le[i]
+        current_Le_after_Q = Q_tf2.response(input_sig)
+        Le_after_Q = np.append(Le_after_Q, current_Le_after_Q)
+
+    current_ILC_after_Q = np.array(current_ILC_after_Q, dtype=float)
+    Le_after_Q = np.array(Le_after_Q, dtype=float)
+    next_ILC = current_ILC_after_Q + Le_after_Q
 
     pos = np.array(pos, dtype=float)[1:]
     # plt.figure(figsize=(6, 5))
@@ -224,3 +192,52 @@ for k in range(4):
     axs[3, 1].plot(next_ILC, label="f_k+1 aft Q")
     axs[3, 1].legend(loc="upper right")
     plt.show()
+
+#
+# pos = np.array([0], dtype=float)
+#
+# for i in range(len(set_point)):
+#     input_sig = set_point[i]
+#     pos_current = closed_loop_tf_model.response(input_sig)  # +random.normal()/4/5
+#     pos = np.append(pos, pos_current)
+#
+# pos = np.delete(pos, 0)
+# err = set_point - pos
+# fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+#
+# axes[0].set_xlabel("time / [s]")
+# axes[0].set_ylabel("Cmd / [N]")
+# axes[0].plot(t, set_point, label="Cmd")
+# axes[0].plot(t, pos, label="Pos")
+# axes[0].legend()
+#
+# axes[1].set_xlabel("time / [s]")
+# axes[1].set_ylabel("Err / [m/s^2]")
+# axes[1].plot(t, err)
+#
+# plt.suptitle("Move")
+# plt.show()
+#
+# err = hamm(err)
+# Le = np.array([0], dtype=float)
+#
+# for i in range(len(err)):
+#     input_sig = err[i]
+#     Le_current = ps_inv_tf_model.response(input_sig)  # +random.normal()/4/5
+#     Le = np.append(Le, Le_current)
+#
+# Le = np.delete(Le, 0)
+#
+# fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+#
+# axes[0].set_xlabel("time / [s]")
+# axes[0].set_ylabel("Err / [N]")
+# axes[0].plot(t, err, label="Err")
+# axes[0].legend()
+#
+# axes[1].set_xlabel("time / [s]")
+# axes[1].set_ylabel("Le / [m/s^2]")
+# axes[1].plot(t, Le)
+#
+# plt.suptitle("Move")
+# plt.show()
