@@ -6,7 +6,6 @@ from sympy import solve
 from sympy.abc import a, b, c
 from scipy import signal
 
-
 res_freq = 200
 anti_res_freq = 150
 res_omega = res_freq * 2 * np.pi
@@ -128,7 +127,7 @@ Q_tf2 = TransferFunc(Q_nom, Q_den, DT)
 # iteration
 current_ILC = np.zeros_like(set_point)
 next_ILC = np.zeros_like(set_point)
-for k in range(4):
+for k in range(1):
     pos = np.array([0])
     err = np.array([])
     pid_output = np.array([])

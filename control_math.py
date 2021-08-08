@@ -101,8 +101,9 @@ class TransferFunc(object):
         nom = nom.astype("complex")
         den = den.astype("complex")
 
-        gain = 20 * np.log10(np.abs(nom / den))
-        phase = np.angle(nom / den, deg=True)
+        fw = nom / den
+        gain = 20 * np.log10(np.abs(fw))
+        phase = np.angle(fw, deg=True)
 
         if plot:
             fig, axes = plt.subplots(1, 2, figsize=(14, 4))
@@ -118,7 +119,7 @@ class TransferFunc(object):
             plt.suptitle("Bode plot")
             plt.show()
 
-        return f, (nom / den)
+        return f, fw
 
 
 def dft(freq, data, dt):
@@ -260,12 +261,18 @@ def pole_placement(dB, bandwidth, alpha, servo_freq):
 
 def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     dt = sys.dt
-    t_list = np.arange(0, t, dt)
+    start_freq_ = 0.8 * start_freq
+    end_freq_ = 1.2 * end_freq
+    t_ = t * (end_freq_ - start_freq_) / (end_freq - start_freq)
+    t_list = np.arange(0, t_, dt)
+    pad_len = int(0.1 / dt)
+
     u = np.sin(
         2
         * np.pi
-        * ((end_freq - start_freq) / t * t_list ** 2 / 2 + start_freq * t_list)
+        * ((end_freq_ - start_freq_) / t * t_list ** 2 / 2 + start_freq_ * t_list)
     )
+    u = np.pad(u, (0, pad_len))
     a = np.array([])
     for i in range(len(u)):
         input_sig = u[i]
@@ -279,10 +286,10 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     u_detrend = u - np.mean(u)
     y_detrend = y - np.mean(y)
 
-    f_u, fw_u = fft(half_hamm(u_detrend), dt)
-    f_y, fw_y = fft(half_hamm(y_detrend), dt)
-    # f_u, fw_u = fft(u_detrend, dt)
-    # f_y, fw_y = fft(y_detrend, dt)
+    # f_u, fw_u = fft(half_hamm(u_detrend), dt)
+    # f_y, fw_y = fft(half_hamm(y_detrend), dt)
+    f_u, fw_u = fft(u_detrend, dt)
+    f_y, fw_y = fft(y_detrend, dt)
 
     resolution = 1 / dt / len(f_u)
     start_point = int(start_freq / resolution)
@@ -308,9 +315,68 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
 
     return f_u[1:end_point], fw[1:end_point]
 
-    # plt.figure(1)
-    # plt.plot(t_list, u)
-    # plt.show()
-    # plt.figure(2)
-    # plt.plot(t_list, a)
-    # plt.show()
+
+def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
+    dt = sys.dt
+    start_freq_ = 0.8 * start_freq
+    end_freq_ = 1.2 * end_freq
+    t_ = t * (end_freq_ - start_freq_) / (end_freq - start_freq)
+    t_list = np.arange(0, t_, dt)
+    pad_len = int(0.1 / dt)
+
+    u = np.sin(
+        2
+        * np.pi
+        * ((end_freq_ - start_freq_) / t * t_list ** 2 / 2 + start_freq_ * t_list)
+    )
+    u = np.pad(u, (0, pad_len))
+    a = np.array([])
+    v = np.array([0])
+    p = np.array([0])
+    for i in range(len(u)):
+        input_sig = u[i]
+        a_current = sys.response(input_sig)  # +random.normal()/4/5
+        v_current = v[-1] + a_current * dt
+        p_current = p[-1] + v_current * dt
+        a = np.append(a, a_current)
+        v = np.append(v, v_current)
+        p = np.append(p, p_current)
+
+    a = np.array(a, dtype=float)
+    v = np.array(v, dtype=float)
+    p = np.array(p[1:], dtype=float)
+    # a = np.pad(np.diff(pos, 2), (0, 2))
+    y = np.diff(p, 2) / dt / dt
+    y = np.pad(y, (2, 0), "constant", constant_values=(0, 0))
+
+    u_detrend = u - np.mean(u)
+    y_detrend = y - np.mean(y)
+
+    # f_u, fw_u = fft(half_hamm(u_detrend), dt)
+    # f_y, fw_y = fft(half_hamm(y_detrend), dt)
+    f_u, fw_u = fft(u_detrend, dt)
+    f_y, fw_y = fft(y_detrend, dt)
+
+    resolution = 1 / dt / len(f_u)
+    start_point = int(start_freq / resolution)
+    end_point = int(end_freq / resolution)
+
+    fw = fw_y / fw_u
+    if plot:
+        plt.figure(figsize=(14, 4))
+        plt.subplot(121)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            20 * np.log10(np.abs(fw)[start_point:end_point]),
+        )
+
+        plt.subplot(122)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            np.angle(fw[start_point:end_point], deg=True),
+        )
+        plt.show()
+
+    return f_u[1:end_point], fw[1:end_point]
