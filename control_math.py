@@ -13,10 +13,18 @@ class TransferFunc(object):
         self.dt = dt
         z = symbols("z")
         _nom_d = _den_d = 0
+        # tustin
+        s = 2 / dt * (z - 1) / (z + 1)
+        # 前向差分
+        # s = (z - 1) / dt
+        # 后向差分
+        # s = (1 - z ** -1) / dt
+
         for _i in range(len(nom)):
-            _nom_d += nom[-_i - 1] * (2 / dt * (z - 1) / (z + 1)) ** _i
+            _nom_d += nom[-_i - 1] * s ** _i
         for _i in range(len(den)):
-            _den_d += den[-_i - 1] * (2 / dt * (z - 1) / (z + 1)) ** _i
+            _den_d += den[-_i - 1] * s ** _i
+
         nom_d, den_d = cancel(simplify(_nom_d / _den_d)).as_numer_denom()
         self.nom_d = nom_d.as_poly(z).all_coeffs()
         self.den_d = den_d.as_poly(z).all_coeffs()
@@ -270,7 +278,7 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     u = np.sin(
         2
         * np.pi
-        * ((end_freq_ - start_freq_) / t * t_list ** 2 / 2 + start_freq_ * t_list)
+        * ((end_freq_ - start_freq_) / t_ * t_list ** 2 / 2 + start_freq_ * t_list)
     )
     u = np.pad(u, (0, pad_len))
     a = np.array([])
@@ -278,6 +286,9 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
         input_sig = u[i]
         a_current = sys.response(input_sig)  # +random.normal()/4/5
         a = np.append(a, a_current)
+
+    csv = np.asarray([u, a]).T
+    np.savetxt("datalog.csv", csv, delimiter=",")
 
     a = np.array(a, dtype=float)
     # a = np.pad(np.diff(pos, 2), (0, 2))
@@ -365,14 +376,14 @@ def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
     if plot:
         plt.figure(figsize=(14, 4))
         plt.subplot(121)
-        plt.xscale("log")
+        # plt.xscale("log")
         plt.plot(
             f_u[start_point:end_point],
             20 * np.log10(np.abs(fw)[start_point:end_point]),
         )
 
         plt.subplot(122)
-        plt.xscale("log")
+        # plt.xscale("log")
         plt.plot(
             f_u[start_point:end_point],
             np.angle(fw[start_point:end_point], deg=True),
