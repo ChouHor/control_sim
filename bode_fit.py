@@ -20,7 +20,9 @@ sys = TransferFunc(
     DT,
 )
 identity_tf = TransferFunc([1], [1], DT)
-# sys = TransferFunc([1], [1, 2, 1], DT)
+# sys = TransferFunc(
+#     [2, 30, 400000, 50000, 3204, 70000, 12], [1, 20, 30000, 4003, 12], DT
+# )
 # sys = TransferFunc([1, 2, 1], [1, 3, 5], DT)
 # sys = identity_tf / sys
 
