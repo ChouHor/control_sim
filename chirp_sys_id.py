@@ -22,8 +22,17 @@ num = (
 )
 den = np.array([1, 2 * beta2 * res_omega, res_omega ** 2])
 
-# num = np.convolve(num, [-1, 4 / DT])
-# den = np.convolve(den, [1, 4 / DT])
+# (-s+2/T)/(s+2/T)
+num = np.convolve(num, [-1, 4 / DT])
+den = np.convolve(den, [1, 4 / DT])
+
+# 2*T/(T*s+2)
+# num = np.convolve(num, [2 * DT])
+# den = np.convolve(den, [DT, 2])
+
+# 1/(s+1)
+# num = np.convolve(num, [1])
+# den = np.convolve(den, [1, 1])
 
 plant_acc_tf = TransferFunc(num, den, DT)
 

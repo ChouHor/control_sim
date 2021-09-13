@@ -288,7 +288,7 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
         a = np.append(a, a_current)
 
     csv = np.asarray([u, a]).T
-    np.savetxt("datalog.csv", csv, delimiter=",")
+    # np.savetxt("datalog.csv", csv, delimiter=",")
 
     a = np.array(a, dtype=float)
     # a = np.pad(np.diff(pos, 2), (0, 2))
