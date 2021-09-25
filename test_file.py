@@ -4,73 +4,21 @@ import matplotlib.pyplot as plt
 from common import *
 from control_math import *
 
-res_freq = 200
-anti_res_freq = 150
-res_omega = res_freq * 2 * np.pi
-anti_res_omega = anti_res_freq * 2 * np.pi
+T = 2
+t = np.linspace(0, T, SERVO_FREQ * T + 1)
+u = np.sin(2 * np.pi * ((3000 - 1000) / T * t ** 2 / 2 + 1000 * t))
 
-beta1 = 0.1
-beta2 = 0.1
+f, fw = fft(u, DT)
 
-# plant_pos_tf = TransferFunc([1], [1, 2, 1], DT)
-plant_pos_tf = TransferFunc(
-    res_omega ** 2
-    / anti_res_omega ** 2
-    * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2]),
-    np.array([1, 2 * beta2 * res_omega, res_omega ** 2]),
-    DT,
-)
-t = np.linspace(0, 7, 7000)
-u1 = np.zeros_like(t)
-u1[0] = SERVO_FREQ
-impulse_response = np.array([0])
-
-for i in range(len(u1)):
-    input_sig = u1[i]
-    p_current = plant_pos_tf.response(input_sig)  # +random.normal()/4/5
-    impulse_response = np.append(impulse_response, p_current)
-
-p = np.array(impulse_response)  # [1:]
-plt.figure(1)
-plt.plot(p)
-
-# signal lsim method
-# plant_pos_tf = signal.lti([1], [1, 2, 1])
-plant_pos_tf = signal.lti(
-    res_omega ** 2
-    / anti_res_omega ** 2
-    * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2]),
-    np.array([1, 2 * beta2 * res_omega, res_omega ** 2]),
-)
-
-t = np.linspace(0, 7, 7000)
-u = np.zeros_like(t)
-u[0] = 1
-tout1, y1, x1 = signal.lsim(plant_pos_tf, u, t)
-plt.figure(2)
-plt.plot(tout1, y1)
-
-# signal impulse method
-tout2, y2 = signal.impulse2(plant_pos_tf, T=t)
-# tout2, y2 = signal.step(plant_pos_tf, T=t)
-plt.figure()
-plt.plot(tout2, y2)
-
-# plt.plot(t, y)
-
-
-# plt.figure(figsize=(12, 4))
-# plt.subplot(121)
-# plt.xscale("log")
-# plt.plot(
-#     f,
-#     20 * np.log10(np.abs(fw_acc)),
-# )
-#
-# plt.subplot(122)
-# plt.xscale("log")
-# plt.plot(
-#     f,
-#     np.angle(fw_acc, deg=True),
-# )
+# plt.figure()
+# plt.plot(f, np.abs(fw))
 # plt.show()
+# signal.correlate(a, v, mode)
+
+a = np.array([1, 2, 3, 4, 0])
+b = np.array([5, 6, 7, 8, 0])
+
+Rab = np.zeros_like(a)
+for i in range(len(a)):
+    Rab[i] = sum(a[0 : -i - 1] * b[i:-1])
+print(Rab)

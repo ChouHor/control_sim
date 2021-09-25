@@ -9,7 +9,7 @@ from scipy import signal
 num = np.array([1])
 den = np.array([1, 2, 1])
 # (-s+2/T)/(s+2/T)
-# num = np.convolve(num, [-1, 4 / DT])
+# cross_num = np.convolve(cross_num, [-1, 4 / DT])
 # den = np.convolve(den, [1, 4 / DT])
 
 # 2*T/(T*s+2)

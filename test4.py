@@ -11,7 +11,7 @@ import numpy as np
 
 # from scipy import signal as ssig
 # http://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.lti.html
-#   sys = LTI( (num, den)  or (zeros, poles, gains)  or (A,B,C,D) )
+#   sys = LTI( (cross_num, den)  or (zeros, poles, gains)  or (A,B,C,D) )
 #   T, yout       = sys.step( U, [T = np.arange] )  ssig.step
 
 __version__ = "2015-02-17 feb  denis-bz-py t-online de"

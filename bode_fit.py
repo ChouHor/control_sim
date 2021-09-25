@@ -31,17 +31,17 @@ f, fw = sys.bode(np.array(range(10, 5000)), plot=False)
 
 # def fit(f, fw, bn, am):
 #     s = 1j * 2 * np.pi * f
-#     num = len(f)
-#     A = np.zeros([num, am], dtype="complex")
+#     cross_num = len(f)
+#     A = np.zeros([cross_num, am], dtype="complex")
 #     for i in range(am):
 #         A[:, i] = s ** i * fw
 #     Re_A = A.real
 #     Im_A = A.imag
 #     for i in range(bn + 1):
 #         if i % 2 == 0:
-#             Re_A = np.concatenate((Re_A, -(s ** i).real.reshape(num, 1)), axis=1)
+#             Re_A = np.concatenate((Re_A, -(s ** i).real.reshape(cross_num, 1)), axis=1)
 #         else:
-#             Im_A = np.concatenate((Im_A, -(s ** i).imag.reshape(num, 1)), axis=1)
+#             Im_A = np.concatenate((Im_A, -(s ** i).imag.reshape(cross_num, 1)), axis=1)
 #
 #     Re_A = np.mat(Re_A)[:, 1:]
 #     Im_A = np.mat(Im_A)[:, 1:]

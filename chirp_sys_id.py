@@ -7,8 +7,8 @@ from sympy.abc import a, b, c
 from scipy import signal
 
 
-res_freq = 30
-anti_res_freq = 20
+res_freq = 200
+anti_res_freq = 150
 res_omega = res_freq * 2 * np.pi
 anti_res_omega = anti_res_freq * 2 * np.pi
 
@@ -27,11 +27,11 @@ num = np.convolve(num, [-1, 4 / DT])
 den = np.convolve(den, [1, 4 / DT])
 
 # 2*T/(T*s+2)
-# num = np.convolve(num, [2 * DT])
+# cross_num = np.convolve(cross_num, [2 * DT])
 # den = np.convolve(den, [DT, 2])
 
 # 1/(s+1)
-# num = np.convolve(num, [1])
+# cross_num = np.convolve(cross_num, [1])
 # den = np.convolve(den, [1, 1])
 
 plant_acc_tf = TransferFunc(num, den, DT)
@@ -43,7 +43,9 @@ plant_pos_tf = a2p_tf * plant_acc_tf
 # plant_acc_tf.bode(1, 1000)
 
 # system identification
-f, fw_acc = chirp_iden(plant_acc_tf, 5, 1000, 0.5, plot=True)
+# f, fw_acc = chirp_iden(plant_acc_tf, 5, 2000, 1, plot=True)
+f, fw_acc = chirp_iden_pos(plant_acc_tf, 50, 2000, 0.5, plot=True)
+# f, fw_acc = chirp_iden_cross(plant_acc_tf, 5, 1000, 0.5, plot=True)
 
 f, fw_a2p = a2p_tf.bode(f)
 

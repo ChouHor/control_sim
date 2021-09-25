@@ -1,9 +1,8 @@
 import numpy as np
 from sympy.core import symbols
 from sympy import simplify, cancel, Poly, fraction, solve
-from scipy.linalg import hankel
-from scipy.linalg import toeplitz
 import matplotlib.pyplot as plt
+from scipy.linalg import expm
 
 
 class TransferFunc(object):
@@ -128,6 +127,88 @@ class TransferFunc(object):
             plt.show()
 
         return f, fw
+
+
+class StateSpaceModel(object):
+    def __init__(self, A, B, C, D, dt):
+        n_states = int(np.asarray(A).size ** 0.5)
+        self.n_states = n_states
+        self.A = np.asarray(A).reshape((n_states, n_states))
+        self.B = np.asarray(B).reshape((n_states, -1))
+        self.C = np.asarray(C).reshape((-1, n_states))
+        self.D = np.asarray(D).reshape((self.C.shape[0], self.B.shape[1]))
+        self.dt = dt
+        self.x_state = np.zeros((n_states, 1))
+        self.y_output = np.zeros((self.C.shape[0], 1))
+        self.last_u = np.zeros((self.B.shape[1], 1))
+
+        identity = np.identity(n_states)
+        self.expM_zoh_x = expm(A * dt)
+        try:
+            self.expM_zoh_u = np.linalg.inv(A).dot(self.expM_zoh_x - identity).dot(B)
+        except:
+            self.expM_zoh_u = None
+        n_inputs = self.B.shape[1]
+        M_linear = np.block(
+            [
+                [A * dt, B * dt, np.zeros((n_states, n_inputs))],
+                [
+                    np.zeros((n_inputs, n_states + n_inputs)),
+                    np.identity(n_inputs),
+                ],
+                [np.zeros((n_inputs, n_states + 2 * n_inputs))],
+            ]
+        )
+        expM_linear = expm(M_linear)
+        self.Ad_linear = expM_linear[:n_states, :n_states]
+        self.Bd1_linear = expM_linear[:n_states, n_states + n_inputs :]
+        self.Bd0_linear = (
+            expM_linear[:n_states, n_states : n_states + n_inputs] - self.Bd1_linear
+        )
+        M_step = np.block(
+            [[A * dt, B * dt], [np.zeros((n_inputs, n_states + n_inputs))]]
+        )
+        expM_step = expm(M_step)
+        self.Ad_step = expM_step[:n_states, :n_states]
+        self.Bd1_step = expM_step[:n_states, n_states:]
+
+    def response(self, u, method="zoh"):
+        last_u = self.last_u
+        u = np.asarray(u).reshape((-1, 1))
+        x_state = self.x_state
+        if method == "zoh":  # 教科书的解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
+            x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(last_u)
+        if method == "zoh2":  # lsim解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
+            x_state = np.dot(self.Ad_step, x_state) + np.dot(self.Bd1_step, last_u)
+        if method == "interp":  # 输入为当前拍和上一拍的平均值的step，没有延时
+            u_mean = (last_u + u) / 2
+            x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(u_mean)
+        elif method == "linear":  # 三角形保持器，forced_response解法，没有延时
+            x_state = (
+                np.dot(self.Ad_linear, x_state)
+                + np.dot(self.Bd0_linear, last_u)
+                + np.dot(self.Bd1_linear, u)
+            )
+        self.last_u = u
+        self.x_state = x_state
+        self.y_output = self.C.dot(x_state) + self.D.dot(u)
+        return self.y_output, x_state
+
+
+class PID(object):
+    def __init__(self, kp, ki, kd):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.last_u = np.zeros_like(kp)
+        self.ki_output = self.last_u
+        self.kd_output = self.last_u
+
+    def response(self, u):
+        self.ki_output = self.ki_output + self.ki * u
+        self.kd_output = self.kd * (u - self.last_u)
+        self.last_u = u
+        return self.kp * u + self.ki_output + self.kd_output
 
 
 def dft(freq, data, dt):
@@ -327,6 +408,72 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     return f_u[1:end_point], fw[1:end_point]
 
 
+def chirp_iden_cross(sys, start_freq, end_freq, t, plot=False):
+    dt = sys.dt
+    start_freq_ = 0.8 * start_freq
+    end_freq_ = 1.2 * end_freq
+    t_ = t * (end_freq_ - start_freq_) / (end_freq - start_freq)
+    t_list = np.arange(0, t_, dt)
+    pad_len = int(0.1 / dt)
+
+    u = np.sin(
+        2
+        * np.pi
+        * ((end_freq_ - start_freq_) / t_ * t_list ** 2 / 2 + start_freq_ * t_list)
+    )
+    u = np.pad(u, (0, pad_len))
+    a = np.array([])
+    for i in range(len(u)):
+        input_sig = u[i]
+        a_current = sys.response(input_sig)  # +random.normal()/4/5
+        a = np.append(a, a_current)
+
+    csv = np.asarray([u, a]).T
+    # np.savetxt("datalog.csv", csv, delimiter=",")
+
+    a = np.array(a, dtype=float)
+    y = a
+
+    u_detrend = u - np.mean(u)
+    y_detrend = y - np.mean(y)
+
+    cross_num = int(len(u))
+    Ruy = np.zeros(cross_num)
+    Ruu = np.zeros(cross_num)
+    for i in range(cross_num):
+        print(i)
+        Ruy[i] = sum(u_detrend[0 : -i - 1] * y_detrend[i:-1])
+        Ruu[i] = sum(u_detrend[0 : -i - 1] * u_detrend[i:-1])
+    # Ruy = half_hamm(Ruy)
+    # Ruu = half_hamm(Ruu)
+    f_u, fw_Ruy = fft(Ruy, dt)
+    f_y, fw_Ruu = fft(Ruu, dt)
+    fw = fw_Ruy / fw_Ruu
+
+    resolution = 1 / dt / len(f_u)
+    start_point = int(start_freq / resolution)
+    end_point = int(end_freq / resolution)
+
+    if plot:
+        plt.figure(figsize=(14, 4))
+        plt.subplot(121)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            20 * np.log10(np.abs(fw)[start_point:end_point]),
+        )
+
+        plt.subplot(122)
+        plt.xscale("log")
+        plt.plot(
+            f_u[start_point:end_point],
+            np.angle(fw[start_point:end_point], deg=True),
+        )
+        plt.show()
+
+    return f_u[1:end_point], fw[1:end_point]
+
+
 def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
     dt = sys.dt
     start_freq_ = 0.8 * start_freq
@@ -358,7 +505,7 @@ def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
     p = np.array(p[1:], dtype=float)
     # a = np.pad(np.diff(pos, 2), (0, 2))
     y = np.diff(p, 2) / dt / dt
-    y = np.pad(y, (2, 0), "constant", constant_values=(0, 0))
+    y = np.pad(y, (1, 1), "constant", constant_values=(0, 0))
 
     u_detrend = u - np.mean(u)
     y_detrend = y - np.mean(y)
@@ -376,14 +523,14 @@ def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
     if plot:
         plt.figure(figsize=(14, 4))
         plt.subplot(121)
-        # plt.xscale("log")
+        plt.xscale("log")
         plt.plot(
             f_u[start_point:end_point],
             20 * np.log10(np.abs(fw)[start_point:end_point]),
         )
 
         plt.subplot(122)
-        # plt.xscale("log")
+        plt.xscale("log")
         plt.plot(
             f_u[start_point:end_point],
             np.angle(fw[start_point:end_point], deg=True),

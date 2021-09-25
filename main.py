@@ -9,7 +9,7 @@ from chirp_data import *
 #     dt = 1 / 600
 #
 #     t_total = 0.1
-#     num = t_total / dt
+#     cross_num = t_total / dt
 #     t = np.arange(0, t_total, dt)
 #
 #     f_chirp_start = 1
