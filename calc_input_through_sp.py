@@ -68,7 +68,7 @@ sol = solve(
 )
 
 t = np.linspace(0, T, int(SERVO_FREQ * T))
-# set_point = np.array(sol[a] * t ** 5 + sol[b] * t ** 4 + sol[c] * t ** 3, dtype=float)
+# set_point = np.array(sol[a] * t4dyn ** 5 + sol[b] * t4dyn ** 4 + sol[c] * t4dyn ** 3, dtype=float)
 set_point = np.linspace(0, y1, len(t), dtype=float)
 
 # Closed loop

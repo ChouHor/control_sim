@@ -64,9 +64,9 @@ process_sensitivity_tf_model = plant_pos_tf / (
 ps_inv_tf_model = identity_tf / process_sensitivity_tf_model
 
 ps_inv_tf_model.zpk()
-# nom = ps_inv_tf_model.nom
+# num = ps_inv_tf_model.num
 # den = ps_inv_tf_model.den
-# z, p, k = signal.tf2zpk(nom, den)
+# z, p, k = signal.tf2zpk(num, den)
 
 """Simulation"""
 T = 0.1
@@ -81,15 +81,15 @@ sol = solve(
 )
 
 t = np.linspace(0, T, int(SERVO_FREQ * T))
-# t2 = np.append(t, np.zeros(int(SERVO_FREQ * T / 2)))
+# t2 = np.append(t4dyn, np.zeros(int(SERVO_FREQ * T4chirp / 2)))
 set_point = sol[a] * t ** 5 + sol[b] * t ** 4 + sol[c] * t ** 3
-# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T / 2)))
-# t = t2
+# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T4chirp / 2)))
+# t4dyn = t2
 
-Q_nom, Q_den = signal.butter(4, 2000, "low", analog=True)
-# Q_nom, Q_den = ([1], [1])
-Q_tf1 = TransferFunc(Q_nom, Q_den, DT)
-Q_tf2 = TransferFunc(Q_nom, Q_den, DT)
+Q_num, Q_den = signal.butter(4, 2000, "low", analog=True)
+# Q_num, Q_den = ([1], [1])
+Q_tf1 = TransferFunc(Q_num, Q_den, DT)
+Q_tf2 = TransferFunc(Q_num, Q_den, DT)
 
 # iteration
 current_ILC = np.zeros_like(set_point)
@@ -207,13 +207,13 @@ for k in range(4):
 #
 # axes[0].set_xlabel("time / [s]")
 # axes[0].set_ylabel("Cmd / [N]")
-# axes[0].plot(t, set_point, label="Cmd")
-# axes[0].plot(t, pos, label="Pos")
+# axes[0].plot(t4dyn, set_point, label="Cmd")
+# axes[0].plot(t4dyn, pos, label="Pos")
 # axes[0].legend()
 #
 # axes[1].set_xlabel("time / [s]")
 # axes[1].set_ylabel("Err / [m/s^2]")
-# axes[1].plot(t, err)
+# axes[1].plot(t4dyn, err)
 #
 # plt.suptitle("Move")
 # plt.show()
@@ -232,12 +232,12 @@ for k in range(4):
 #
 # axes[0].set_xlabel("time / [s]")
 # axes[0].set_ylabel("Err / [N]")
-# axes[0].plot(t, err, label="Err")
+# axes[0].plot(t4dyn, err, label="Err")
 # axes[0].legend()
 #
 # axes[1].set_xlabel("time / [s]")
 # axes[1].set_ylabel("Le / [m/s^2]")
-# axes[1].plot(t, Le)
+# axes[1].plot(t4dyn, Le)
 #
 # plt.suptitle("Move")
 # plt.show()

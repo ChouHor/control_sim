@@ -22,11 +22,11 @@ num = (
 )
 den = np.array([1, 2 * beta2 * res_omega, res_omega ** 2])
 
-# (-s+2/T)/(s+2/T)
+# (-s+2/T4chirp)/(s+2/T4chirp)
 num = np.convolve(num, [-1, 4 / DT])
 den = np.convolve(den, [1, 4 / DT])
 
-# 2*T/(T*s+2)
+# 2*T4chirp/(T4chirp*s+2)
 # cross_num = np.convolve(cross_num, [2 * DT])
 # den = np.convolve(den, [DT, 2])
 

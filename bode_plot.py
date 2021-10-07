@@ -1,7 +1,9 @@
 from scipy import signal
 import matplotlib.pyplot as plt
 
-sys = signal.TransferFunction([1], [1, 200, 1000])
+Q_num, Q_den = signal.butter(3, 2000, "low", analog=True)
+
+sys = signal.TransferFunction(Q_num, Q_den)
 w, mag, phase = signal.bode(sys)
 
 plt.figure()

@@ -1,4 +1,4 @@
-""" a simple example of ILC
+""" a simple example of f_k
     from Moore, Iterative learning control: a tutorial and big picture 2006 6p
 """
 # https://en.wikipedia.org/wiki/Iterative_learning_control
@@ -12,9 +12,9 @@ import numpy as np
 # from scipy import signal as ssig
 # http://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.lti.html
 #   sys = LTI( (cross_num, den)  or (zeros, poles, gains)  or (A,B,C,D) )
-#   T, yout       = sys.step( U, [T = np.arange] )  ssig.step
+#   T4chirp, yout       = sys.step( U, [T4chirp = np.arange] )  ssig.step
 
-__version__ = "2015-02-17 feb  denis-bz-py t-online de"
+__version__ = "2015-02-17 feb  denis-bz-py t4dyn-online de"
 
 # ...............................................................................
 rates = [1.15, 1.5]  # aka gamma, eta, learning rate, stepsize
@@ -46,7 +46,7 @@ if plot:
 
     fig, axes = pl.subplots(nrows=len(rates))
     fig.suptitle(
-        "A simple example of ILC, iterative learning control  from Moore et al."
+        "A simple example of f_k, iterative learning control  from Moore et al."
     )
     for rate, ax in zip(rates, axes):
         ax.set_ylabel("rate %.3g" % rate)

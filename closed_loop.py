@@ -74,9 +74,9 @@ process_sensitivity_tf_model = plant_pos_tf / (
 ps_inv_tf_model = identity_tf / process_sensitivity_tf_model
 
 # ps_inv_tf_model.zpk()
-# nom = ps_inv_tf_model.nom
+# num = ps_inv_tf_model.num
 # den = ps_inv_tf_model.den
-# z, p, k = signal.tf2zpk(nom, den)
+# z, p, k = signal.tf2zpk(num, den)
 
 """Simulation"""
 T = 0.1
@@ -91,10 +91,10 @@ sol = solve(
 )
 
 t = np.linspace(0, T, int(SERVO_FREQ * T))
-# t2 = np.append(t, np.zeros(int(SERVO_FREQ * T / 2)))
+# t2 = np.append(t4dyn, np.zeros(int(SERVO_FREQ * T4chirp / 2)))
 set_point = sol[a] * t ** 5 + sol[b] * t ** 4 + sol[c] * t ** 3
-# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T / 2)))
-# t = t2
+# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T4chirp / 2)))
+# t4dyn = t2
 
 pos = np.array([0], dtype=float)
 vel = np.array([0], dtype=float)
@@ -156,12 +156,12 @@ plt.show()
 #
 # axes[0].set_xlabel("time / [s]")
 # axes[0].set_ylabel("Err / [N]")
-# axes[0].plot(t, err, label="Err")
+# axes[0].plot(t4dyn, err, label="Err")
 # axes[0].legend()
 #
 # axes[1].set_xlabel("time / [s]")
 # axes[1].set_ylabel("Le / [m/s^2]")
-# axes[1].plot(t, Le)
+# axes[1].plot(t4dyn, Le)
 #
 # plt.suptitle("Move")
 # plt.show()

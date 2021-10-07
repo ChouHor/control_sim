@@ -3,15 +3,16 @@ from sympy.core import symbols
 from sympy import simplify, cancel, Poly, fraction, solve
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
+from itertools import chain, zip_longest
 
 
 class TransferFunc(object):
-    def __init__(self, nom, den, dt):
-        self.nom = np.array(nom)
+    def __init__(self, num, den, dt):
+        self.num = np.array(num)
         self.den = np.array(den)
         self.dt = dt
         z = symbols("z")
-        _nom_d = _den_d = 0
+        _num_d = _den_d = 0
         # tustin
         s = 2 / dt * (z - 1) / (z + 1)
         # 前向差分
@@ -19,96 +20,96 @@ class TransferFunc(object):
         # 后向差分
         # s = (1 - z ** -1) / dt
 
-        for _i in range(len(nom)):
-            _nom_d += nom[-_i - 1] * s ** _i
+        for _i in range(len(num)):
+            _num_d += num[-_i - 1] * s ** _i
         for _i in range(len(den)):
             _den_d += den[-_i - 1] * s ** _i
 
-        nom_d, den_d = cancel(simplify(_nom_d / _den_d)).as_numer_denom()
-        self.nom_d = nom_d.as_poly(z).all_coeffs()
+        num_d, den_d = cancel(simplify(_num_d / _den_d)).as_numer_denom()
+        self.num_d = num_d.as_poly(z).all_coeffs()
         self.den_d = den_d.as_poly(z).all_coeffs()
-        self.input_array = np.zeros_like(self.nom_d, dtype=float)
+        self.input_array = np.zeros_like(self.num_d, dtype=float)
         self.output_array = np.zeros_like(self.den_d, dtype=float)
         self.output = 0
 
     def __get_operation_coeffs(self, other):
         s = symbols("s")
-        self_nom = Poly(self.nom, s).as_expr(s)
+        self_num = Poly(self.num, s).as_expr(s)
         self_den = Poly(self.den, s).as_expr(s)
-        other_nom = Poly(other.nom, s).as_expr(s)
+        other_num = Poly(other.num, s).as_expr(s)
         other_den = Poly(other.den, s).as_expr(s)
-        return s, self_nom, self_den, other_nom, other_den
+        return s, self_num, self_den, other_num, other_den
 
     def __add__(self, other):
-        s, self_nom, self_den, other_nom, other_den = self.__get_operation_coeffs(other)
-        res_sys_s = cancel(simplify(self_nom / self_den + other_nom / other_den))
-        _res_nom, _res_den = res_sys_s.as_numer_denom()
-        res_nom = _res_nom.as_poly(s).all_coeffs()
-        res_den = _res_den.as_poly(s).all_coeffs()
-        res_sys = TransferFunc(res_nom, res_den, self.dt)
+        s, self_num, self_den, other_num, other_den = self.__get_operation_coeffs(other)
+        res_sys_s = cancel(simplify(self_num / self_den + other_num / other_den))
+        _res_num, _res_den = res_sys_s.as_numer_denom()
+        res_num = np.array(_res_num.as_poly(s).all_coeffs(), dtype=float)
+        res_den = np.array(_res_den.as_poly(s).all_coeffs(), dtype=float)
+        res_sys = TransferFunc(res_num, res_den, self.dt)
         return res_sys
 
     def __sub__(self, other):
-        s, self_nom, self_den, other_nom, other_den = self.__get_operation_coeffs(other)
-        res_sys_s = cancel(simplify(self_nom / self_den - other_nom / other_den))
-        _res_nom, _res_den = res_sys_s.as_numer_denom()
-        res_nom = _res_nom.as_poly(s).all_coeffs()
-        res_den = _res_den.as_poly(s).all_coeffs()
-        res_sys = TransferFunc(res_nom, res_den, self.dt)
+        s, self_num, self_den, other_num, other_den = self.__get_operation_coeffs(other)
+        res_sys_s = cancel(simplify(self_num / self_den - other_num / other_den))
+        _res_num, _res_den = res_sys_s.as_numer_denom()
+        res_num = np.array(_res_num.as_poly(s).all_coeffs(), dtype=float)
+        res_den = np.array(_res_den.as_poly(s).all_coeffs(), dtype=float)
+        res_sys = TransferFunc(res_num, res_den, self.dt)
         return res_sys
 
     def __mul__(self, other):
-        s, self_nom, self_den, other_nom, other_den = self.__get_operation_coeffs(other)
-        res_sys_s = cancel(simplify(self_nom / self_den * other_nom / other_den))
-        _res_nom, _res_den = res_sys_s.as_numer_denom()
-        res_nom = _res_nom.as_poly(s).all_coeffs()
-        res_den = _res_den.as_poly(s).all_coeffs()
-        res_sys = TransferFunc(res_nom, res_den, self.dt)
+        s, self_num, self_den, other_num, other_den = self.__get_operation_coeffs(other)
+        res_sys_s = cancel(simplify(self_num / self_den * other_num / other_den))
+        _res_num, _res_den = res_sys_s.as_numer_denom()
+        res_num = np.array(_res_num.as_poly(s).all_coeffs(), dtype=float)
+        res_den = np.array(_res_den.as_poly(s).all_coeffs(), dtype=float)
+        res_sys = TransferFunc(res_num, res_den, self.dt)
         return res_sys
 
     def __truediv__(self, other):
-        s, self_nom, self_den, other_nom, other_den = self.__get_operation_coeffs(other)
-        res_sys_s = cancel(simplify(self_nom / self_den / (other_nom / other_den)))
-        _res_nom, _res_den = res_sys_s.as_numer_denom()
-        res_nom = _res_nom.as_poly(s).all_coeffs()
-        res_den = _res_den.as_poly(s).all_coeffs()
-        res_sys = TransferFunc(res_nom, res_den, self.dt)
+        s, self_num, self_den, other_num, other_den = self.__get_operation_coeffs(other)
+        res_sys_s = cancel(simplify(self_num / self_den / (other_num / other_den)))
+        _res_num, _res_den = res_sys_s.as_numer_denom()
+        res_num = np.array(_res_num.as_poly(s).all_coeffs(), dtype=float)
+        res_den = np.array(_res_den.as_poly(s).all_coeffs(), dtype=float)
+        res_sys = TransferFunc(res_num, res_den, self.dt)
         return res_sys
 
     def zpk(self):
         s = symbols("s")
-        self_nom = Poly(self.nom, s).as_expr(s)
+        self_num = Poly(self.num, s).as_expr(s)
         self_den = Poly(self.den, s).as_expr(s)
-        z = np.array(solve(self_nom, s))
+        z = np.array(solve(self_num, s))
         p = np.array(solve(self_den, s))
-        k = (self_nom / self_den).subs(s, 0)
+        k = (self_num / self_den).subs(s, 0)
         return z, p, k
 
     def response(self, input_sig):
         self.input_array = np.delete(np.insert(self.input_array, 0, input_sig), -1)
         self.output_array = np.delete(np.insert(self.output_array, 0, 0), -1)
         self.output = (
-            np.dot(self.input_array, self.nom_d)
+            np.dot(self.input_array, self.num_d)
             - np.dot(self.output_array[1::], self.den_d[1::])
         ) / self.den_d[0]
         self.output_array[0] = self.output
         return self.output
 
     def reset(self):
-        self.__init__(self.nom, self.den, self.dt)
+        self.__init__(self.num, self.den, self.dt)
 
     def bode(self, f, plot=False):
         # f = np.arange(low, up, 1)
         omega = 2 * np.pi * f
-        nom = den = 0
-        for i in range(len(self.nom)):
-            nom = nom + self.nom[-i - 1] * (1j * omega) ** i
+        num = den = 0
+        for i in range(len(self.num)):
+            num = num + self.num[-i - 1] * (1j * omega) ** i
         for i in range(len(self.den)):
             den = den + self.den[-i - 1] * (1j * omega) ** i
-        nom = nom.astype("complex")
+        num = num.astype("complex")
         den = den.astype("complex")
 
-        fw = nom / den
+        fw = num / den
         gain = 20 * np.log10(np.abs(fw))
         phase = np.angle(fw, deg=True)
 
@@ -194,12 +195,16 @@ class StateSpaceModel(object):
         self.y_output = self.C.dot(x_state) + self.D.dot(u)
         return self.y_output, x_state
 
+    def reset(self):
+        self.__init__(self.A, self.B, self.C, self.D, self.dt)
+
 
 class PID(object):
-    def __init__(self, kp, ki, kd):
+    def __init__(self, kp, ki, kd, servo_freq):
         self.kp = kp
-        self.ki = ki
-        self.kd = kd
+        self.ki = ki / servo_freq
+        self.kd = kd * servo_freq
+        self.servo_freq = servo_freq
         self.last_u = np.zeros_like(kp)
         self.ki_output = self.last_u
         self.kd_output = self.last_u
@@ -209,6 +214,20 @@ class PID(object):
         self.kd_output = self.kd * (u - self.last_u)
         self.last_u = u
         return self.kp * u + self.ki_output + self.kd_output
+
+    def reset(self):
+        self.__init__(self.kp, self.ki, self.kd, 1)
+
+
+def pole_placement(dB, bandwidth, alpha, servo_freq):
+    damping = 0.707
+    ratio = 0.5
+    k = 10 ** (dB / 20)
+    omega = 2 * np.pi * bandwidth
+    kp = (1 + 2 * damping * ratio) * omega ** 2 / k
+    ki = ratio * omega ** 3 / k
+    kd = (2 * damping * omega + ratio * omega - alpha) / k
+    return kp, ki, kd
 
 
 def dft(freq, data, dt):
@@ -337,15 +356,89 @@ def fft(x, dt):
     return f_pad, fw_pad
 
 
-def pole_placement(dB, bandwidth, alpha, servo_freq):
-    damping = 0.707
-    ratio = 0.5
-    k = 10 ** (dB / 20)
-    omega = 2 * np.pi * bandwidth
-    kp = (1 + 2 * damping * ratio) * omega ** 2 / k
-    ki = ratio * omega ** 3 / k / servo_freq
-    kd = (2 * damping * omega + ratio * omega - alpha) / k * servo_freq
-    return kp, ki, kd
+# 分母最高次项系数为1
+def fit2(f, fw, bn, am):
+    s = 1j * 2 * np.pi * f
+    num = len(f)
+    A = np.zeros([num, am], dtype="complex")
+    for i in range(am):
+        A[:, i] = s ** i * fw
+    Re_A = A.real
+    Im_A = A.imag
+    for i in range(bn + 1):
+        if i % 2 == 0:
+            Re_A = np.concatenate((Re_A, -(s ** i).real.reshape(num, 1)), axis=1)
+        else:
+            Im_A = np.concatenate((Im_A, -(s ** i).imag.reshape(num, 1)), axis=1)
+
+    # 加权
+    # Re_weight = np.mat(np.diag(np.linspace(1, 0.0, num)))
+    # Re_A = Re_weight * Re_A
+    # Im_A = Re_weight * Im_A
+
+    Re_A = np.mat(Re_A)
+    Im_A = np.mat(Im_A)
+    B = np.mat(-fw * s ** am)
+    Re_B = np.mat(B.real).T
+    Im_B = np.mat(B.imag).T
+    Re_X = ((Re_A.T * Re_A).I * Re_A.T * Re_B).real.tolist()  # 最小二乘法
+    Im_X = ((Im_A.T * Im_A).I * Im_A.T * Im_B).real.tolist()  # 最小二乘法
+    #
+    # Re_X = (np.linalg.pinv(Re_A) * Re_B).real.tolist()  # numpy库求伪逆
+    # Im_X = (np.linalg.pinv(Im_A) * Re_B).real.tolist()  # numpy库求伪逆
+
+    Re_X = [i[0] for i in Re_X]
+    Im_X = [i[0] for i in Im_X]
+    Bn1 = Re_X[am:]  # [b0, b2, b4, ...]
+    Bn2 = Im_X[am:]  # [b1, b3, b5, ...]
+
+    Bn = [x for x in chain.from_iterable(zip_longest(Bn1, Bn2)) if x is not None]
+    Am = Re_X[0:am] + [1]
+    Bn.reverse()
+    Am.reverse()
+    return Bn, Am
+
+
+# 分母0次项系数为1
+def fit(f, fw, bn, am):
+    s = 1j * 2 * np.pi * f
+    num = len(f)
+    A = np.zeros([num, am], dtype="complex")
+    for i in range(am):
+        A[:, i] = s ** (i + 1) * fw
+    Re_A = A.real
+    Im_A = A.imag
+    for i in range(bn + 1):
+        if ((s[0] ** i).real) != 0:
+            Re_A = np.concatenate((Re_A, -(s ** i).real.reshape(num, 1)), axis=1)
+        else:
+            Im_A = np.concatenate((Im_A, -(s ** i).imag.reshape(num, 1)), axis=1)
+    # 加权
+    Re_weight = np.mat(np.diag(np.linspace(1, 0.0, num)))
+    Re_A = Re_weight * Re_A
+    Im_A = Re_weight * Im_A
+
+    Re_A = np.mat(Re_A)
+    Im_A = np.mat(Im_A)
+    B = np.mat(-fw)
+    Re_B = np.mat(B.real).T
+    Im_B = np.mat(B.imag).T
+    Re_X = ((Re_A.T * Re_A).I * Re_A.T * Re_B).real.tolist()  # 最小二乘法
+    Im_X = ((Im_A.T * Im_A).I * Im_A.T * Im_B).real.tolist()  # 最小二乘法
+
+    # Re_X = (np.linalg.pinv(Re_A) * Re_B).real.tolist()  # numpy库求伪逆
+    # Im_X = (np.linalg.pinv(Im_A) * Im_B).real.tolist()  # numpy库求伪逆
+
+    Re_X = [i[0] for i in Re_X]
+    Im_X = [i[0] for i in Im_X]
+    Bn1 = Re_X[am:]  # [b0, b2, b4, ...]
+    Bn2 = Im_X[am:]  # [b1, b3, b5, ...]
+
+    Bn = [x for x in chain.from_iterable(zip_longest(Bn1, Bn2)) if x is not None]
+    Am = ([1] + Re_X)[0 : am + 1]
+    Bn.reverse()
+    Am.reverse()
+    return Bn, Am
 
 
 def chirp_iden(sys, start_freq, end_freq, t, plot=False):
@@ -378,7 +471,7 @@ def chirp_iden(sys, start_freq, end_freq, t, plot=False):
     u_detrend = u - np.mean(u)
     y_detrend = y - np.mean(y)
 
-    # f_u, fw_u = fft(half_hamm(u_detrend), dt)
+    # f_bode, fw_u = fft(half_hamm(u_detrend), dt)
     # f_y, fw_y = fft(half_hamm(y_detrend), dt)
     f_u, fw_u = fft(u_detrend, dt)
     f_y, fw_y = fft(y_detrend, dt)
@@ -510,7 +603,7 @@ def chirp_iden_pos(sys, start_freq, end_freq, t, plot=False):
     u_detrend = u - np.mean(u)
     y_detrend = y - np.mean(y)
 
-    # f_u, fw_u = fft(half_hamm(u_detrend), dt)
+    # f_bode, fw_u = fft(half_hamm(u_detrend), dt)
     # f_y, fw_y = fft(half_hamm(y_detrend), dt)
     f_u, fw_u = fft(u_detrend, dt)
     f_y, fw_y = fft(y_detrend, dt)

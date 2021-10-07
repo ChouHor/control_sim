@@ -46,10 +46,10 @@ f, fw = sys.bode(np.array(range(10, 5000)), plot=False)
 #     Re_A = np.mat(Re_A)[:, 1:]
 #     Im_A = np.mat(Im_A)[:, 1:]
 #     B = np.mat(-fw * s ** am)
-#     Re_B = np.mat(B.real).T
-#     Im_B = np.mat(B.imag).T
-#     Re_X = ((Re_A.T * Re_A).I * Re_A.T * Re_B).real.tolist()  # 最小二乘法
-#     Im_X = ((Im_A.T * Im_A).I * Im_A.T * Im_B).real.tolist()  # 最小二乘法
+#     Re_B = np.mat(B.real).T4chirp
+#     Im_B = np.mat(B.imag).T4chirp
+#     Re_X = ((Re_A.T4chirp * Re_A).I * Re_A.T4chirp * Re_B).real.tolist()  # 最小二乘法
+#     Im_X = ((Im_A.T4chirp * Im_A).I * Im_A.T4chirp * Im_B).real.tolist()  # 最小二乘法
 #
 #     # Re_X = (np.linalg.pinv(Re_A) * Re_B).real.tolist()  # numpy库求伪逆
 #     # Im_X = (np.linalg.pinv(Im_A) * Re_B).real.tolist()  # numpy库求伪逆
@@ -106,7 +106,7 @@ def fit(f, fw, bn, am):
 
 Bn, Am = fit(f, fw, 2, 2)
 
-print(sys.nom, sys.den)
+print(sys.num, sys.den)
 print(Bn, Am)
 
 fit_sys = TransferFunc(Bn, Am, DT)
