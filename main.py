@@ -9,8 +9,8 @@ from chirp_data import *
 #     dt = 1 / 600
 #
 #     t_total = 0.1
-#     num = t_total / dt
-#     t = np.arange(0, t_total, dt)
+#     cross_num = t_total / dt
+#     t4dyn = np.arange(0, t_total, dt)
 #
 #     f_chirp_start = 1
 #     f_chirp_end = 2000
@@ -21,7 +21,7 @@ from chirp_data import *
 #     u = np.sin(
 #         2
 #         * np.pi
-#         * ((f_chirp_end - f_chirp_start) / t_total * t ** 2 / 2 + f_chirp_start * t)
+#         * ((f_chirp_end - f_chirp_start) / t_total * t4dyn ** 2 / 2 + f_chirp_start * t4dyn)
 #     )
 #
 #     res_freq = 300
@@ -73,11 +73,11 @@ from chirp_data import *
 #
 #     axes[0].set_xlabel("time / [s]")
 #     axes[0].set_ylabel("Force / [N]")
-#     axes[0].plot(t, u)
+#     axes[0].plot(t4dyn, u)
 #
 #     axes[1].set_xlabel("time / [s]")
 #     axes[1].set_ylabel("acceleration / [m/s^2]")
-#     axes[1].plot(t, y)
+#     axes[1].plot(t4dyn, y)
 #
 #     plt.suptitle("Bode plot")
 #     plt.show()

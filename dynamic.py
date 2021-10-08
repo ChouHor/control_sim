@@ -5,11 +5,11 @@ from sympy import symbols, sin, cos
 
 
 def cross(x, y):
-    return np.cross(x.T, y.T).T
+    return np.cross(x.T4chirp, y.T4chirp).T
 
 
 def forward(Tip1i, PCip1ip1, Iip1Cip1, mip1, dthetaip1, ddthetaip1, wii, dwii, dvii):
-    Riip1 = Tip1i[0:3, 0:3].T
+    Riip1 = Tip1i[0:3, 0:3].T4chirp
     Pip1i = Tip1i[0:3, 3]
     wip1ip1 = Riip1.dot(wii) + dthetaip1 * Z
     dwip1ip1 = Riip1.dot(dwii) + cross(Riip1.dot(wii), dthetaip1 * Z) + ddthetaip1 * Z
@@ -27,7 +27,7 @@ def backward(Tip1i, PCii, Fii, Nii, fip1ip1, nip1ip1):
     Pip1i = Tip1i[0:3, 3]
     fii = Rip1i.dot(fip1ip1) + Fii
     nii = Nii + Rip1i.dot(nip1ip1) + cross(PCii, Fii) + cross(Pip1i, Rip1i.fip1ip1)
-    taui = nii.T.dot(Z)
+    taui = nii.T4chirp.dot(Z)
     return fii, nii, taui
 
 

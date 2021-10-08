@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.linalg import toeplitz
+
 from common import *
 from control_math import *
 from sympy import solve
@@ -70,16 +72,16 @@ sol = solve(
     [
         a * T ** 5 + b * T ** 4 + c * T ** 3 - y1,
         5 * a * T ** 4 + 4 * b * T ** 3 + 3 * c * T ** 2,
-        20 * a * T ** 3 + 12 * b * T ** 3 + 6 * c * T,
+        20 * a * T ** 3 + 12 * b * T ** 2 + 6 * c * T,
     ],
     [a, b, c],
 )
 
 t = np.linspace(0, T, int(SERVO_FREQ * T))
-# t2 = np.append(t, np.zeros(int(SERVO_FREQ * T / 2)))
+# t2 = np.append(t4dyn, np.zeros(int(SERVO_FREQ * T4chirp / 2)))
 set_point = sol[a] * t ** 5 + sol[b] * t ** 4 + sol[c] * t ** 3
-# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T / 2)))
-# t = t2
+# set_point = np.append(set_point, np.ones(int(SERVO_FREQ * T4chirp / 2)))
+# t4dyn = t2
 
 # get unit response
 unit_input = np.zeros_like(t)
@@ -119,10 +121,10 @@ U, sigma, VT = np.linalg.svd(A)
 print(max(sigma))
 
 
-Q_nom, Q_den = signal.butter(4, 2000, "low", analog=True)
-# Q_nom, Q_den = ([1], [1])
-Q_tf1 = TransferFunc(Q_nom, Q_den, DT)
-Q_tf2 = TransferFunc(Q_nom, Q_den, DT)
+Q_num, Q_den = signal.butter(4, 2000, "low", analog=True)
+# Q_num, Q_den = ([1], [1])
+Q_tf1 = TransferFunc(Q_num, Q_den, DT)
+Q_tf2 = TransferFunc(Q_num, Q_den, DT)
 
 # iteration
 current_ILC = np.zeros_like(set_point)
