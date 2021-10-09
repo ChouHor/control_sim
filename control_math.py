@@ -237,17 +237,16 @@ def dft(freq, data, dt):
     sine_wave = np.sin(2 * np.pi * freq * t)
     real = np.sum(np.multiply(data, cos_wave))
     imagine = np.sum(np.multiply(data, sine_wave))
-    return real + 1j * imagine
+    return real - 1j * imagine
 
 
 def dft_slow(src_data):
-    num = len(src_data) - 1
+    num = len(src_data)
     fw = np.zeros(num, dtype=complex)
     for k in range(num):
         for _n in range(num):
-            fw[k] += src_data[_n] * np.e ** (1j * 2 * np.pi / num * _n * k)
-    gain = [abs(_) for _ in fw]
-    return gain
+            fw[k] += src_data[_n] * np.e ** (-1j * 2 * np.pi / num * _n * k)
+    return fw
 
 
 def dft_vectorized(x):
