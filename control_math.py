@@ -148,7 +148,7 @@ class StateSpaceModel(object):
         try:
             self.expM_zoh_u = np.linalg.inv(A).dot(self.expM_zoh_x - identity).dot(B)
         except:
-            self.expM_zoh_u = None
+            self.expM_zoh_u = B * dt
         n_inputs = self.B.shape[1]
         M_linear = np.block(
             [
@@ -179,20 +179,27 @@ class StateSpaceModel(object):
         x_state = self.x_state
         if method == "zoh":  # 教科书的解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
             x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(last_u)
+            self.y_output = self.C.dot(x_state) + self.D.dot(last_u)
         if method == "zoh2":  # lsim解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
+            from scipy.signal import lsim, lsim2, step
+
+            # from control import forced_response
+
             x_state = np.dot(self.Ad_step, x_state) + np.dot(self.Bd1_step, last_u)
+            self.y_output = self.C.dot(x_state) + self.D.dot(last_u)
         if method == "interp":  # 输入为当前拍和上一拍的平均值的step，没有延时
             u_mean = (last_u + u) / 2
             x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(u_mean)
+            self.y_output = self.C.dot(x_state) + self.D.dot(u_mean)
         elif method == "linear":  # 三角形保持器，forced_response解法，没有延时
             x_state = (
                 np.dot(self.Ad_linear, x_state)
                 + np.dot(self.Bd0_linear, last_u)
                 + np.dot(self.Bd1_linear, u)
             )
+            self.y_output = self.C.dot(x_state) + self.D.dot(u)
         self.last_u = u
         self.x_state = x_state
-        self.y_output = self.C.dot(x_state) + self.D.dot(u)
         return self.y_output, x_state
 
     def reset(self):

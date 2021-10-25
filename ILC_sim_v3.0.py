@@ -18,34 +18,30 @@ A = np.array([[0, 1], [-k / m, -bb / m]])
 B = np.array([[0], [1 / m]])
 C = np.array([1, 0])
 D = np.array([0])
-# rigid_plant_num, rigid_plant_den = ss2tf(A, B, C, D)
-#
-# res_freq = 200
-# anti_res_freq = 150
-# res_omega = res_freq * 2 * np.pi
-# anti_res_omega = anti_res_freq * 2 * np.pi
-#
-# mass = 0.4
-# beta1 = 0.1
-# beta2 = 0.1
-# res_num = (
-#     1
-#     / mass
-#     * res_omega ** 2
-#     / anti_res_omega ** 2
-#     * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2])
-# )
-# res_den = np.array([1, 2 * beta2 * res_omega, res_omega ** 2, 0, 0])
+plant_num, plant_den = ss2tf(A, B, C, D)
 
-# num = np.convolve(res_num, rigid_plant_num.flatten())
-# den = np.convolve(res_den, rigid_plant_den.flatten())
+res_freq = 200
+anti_res_freq = 150
+res_omega = res_freq * 2 * np.pi
+anti_res_omega = anti_res_freq * 2 * np.pi
 
-# num = res_num
-# den = res_den
-# A, B, C, D = tf2ss(num, den)
+mass = 1
+beta1 = 0.1
+beta2 = 0.1
+res_num = (
+    1
+    / mass
+    * res_omega ** 2
+    / anti_res_omega ** 2
+    * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2])
+)
+res_den = np.array([1, 2 * beta2 * res_omega, res_omega ** 2])
+
+num = np.convolve(res_num, plant_num.flatten())
+den = np.convolve(res_den, plant_den.flatten())
+
+A, B, C, D = tf2ss(num, den)
 sys_ss = StateSpaceModel(A, B, C, D, DT)
-num = [1]
-den = [m, 0, 0]
 sys_tf = TransferFunc(num, den, DT)
 
 """Chirp信号初始化"""
@@ -80,7 +76,6 @@ p = y
 y = np.diff(y, 2) / DT / DT
 y = np.pad(y, (2, 0), "constant", constant_values=(0, 0))
 
-
 u_detrend = u - np.mean(u)
 y_detrend = y - np.mean(y)
 
@@ -104,22 +99,34 @@ linear_decay = (
 fw = fw / zoh_decay / zoh_decay / zoh_decay
 
 # 拟合传递函数
-Bn, Am = fit2(f_bode, fw, 0, 0)
+Bn, Am = fit(f_bode, fw, 2, 2)
 sys_fit = TransferFunc(Bn, Am, DT)
-print("num:", num, "den:", den[:-2])
-print("Bn:", Bn, "Am:", Am)
+print("num:", num, "\nden:", den[:-2])
+print("Bn:", Bn, "\nAm:", Am)
+
+# f_fit, fw_fit = sys_fit.bode(np.array(range(start_freq, end_freq)))
+# fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+#
+# axes[0].set_xlabel("f/[Hz]")
+# axes[0].set_ylabel("Gain/[dB]")
+# axes[0].semilogx(f_bode, 20 * np.log10(np.abs(fw)), label="Gain")
+# axes[0].semilogx(f_fit, 20 * np.log10(np.abs(fw_fit)), label="Fit Gain")
+#
+# axes[1].set_xlabel("f/[Hz]")
+# axes[1].set_ylabel("Phase/[deg]")
+# axes[1].semilogx(f_bode, np.angle(fw, deg=True), label="Phase")
+# axes[1].semilogx(f_fit, np.angle(fw_fit, deg=True), label="Fit Phase")
+# plt.suptitle("sys id bode plot")
+# plt.legend()
+# plt.show()
 
 """设计PID"""
-num_a = np.array([1 / m])
-den_a = np.array([1])
-delay_num = np.array([-0.00005, 1])
-delay_den = np.array([1])
-num_a_delay = np.convolve(delay_num, num_a.flatten())
-den_a_delay = np.convolve(delay_den, den_a.flatten())
-sys_tf_delay = TransferFunc(num_a_delay, den_a_delay, DT) * TransferFunc(
-    [1], [1, 0, 0], DT
-)
-sys_tf = sys_tf_delay
+delay_num = np.array([1])
+delay_den = np.array([0.00005, 1])
+num_a_delay = np.convolve(delay_num, Bn)
+den_a_delay = np.convolve(delay_den, Am)
+sys_tf_delay = TransferFunc(num_a_delay, den_a_delay, DT)
+# sys_tf = sys_tf_delay
 
 f_fit4pid, fw_fit4pid = TransferFunc(num_a_delay, den_a_delay, DT).bode(
     np.array(range(1, 500))
@@ -129,7 +136,7 @@ f_fit4pid, fw_fit4pid = TransferFunc(num_a_delay, den_a_delay, DT).bode(
 # )
 # f_fit4pid, fw_fit4pid = sys_fit.bode(np.array(range(1, 500)))
 plant_gain = np.mean(20 * np.log10(np.abs(fw_fit4pid)))
-kp, ki, kd = pole_placement(plant_gain, 100, 0, SERVO_FREQ)
+kp, ki, kd = pole_placement(plant_gain, 80, 0, SERVO_FREQ)
 # kp = 1000
 # ki = 0.1
 # kd = 1000
@@ -139,9 +146,10 @@ pid_tf = TransferFunc([kd, kp, ki], [1, 0], DT)
 
 
 # SPG
+T4wait = 10 * DT
 T4dyn = 0.03
 T4settling = 0.03
-T4move = T4dyn + T4settling
+T4move = T4wait + T4dyn + T4settling
 y1 = 0.005
 sol = solve(
     [
@@ -160,9 +168,19 @@ set_a = 20 * sol[a] * t4dyn ** 3 + 12 * sol[b] * t4dyn ** 2 + sol[c] * 6 * t4dyn
 t4move = np.arange(0, T4move, DT)
 T4move = round(t4move[-1] + DT, 10)
 
-set_p = np.append(set_p, y1 * np.ones(len(t4move) - len(t4dyn)))
-set_v = np.append(set_v, np.zeros(len(t4move) - len(t4dyn)))
-set_a = np.append(set_a, np.zeros(len(t4move) - len(t4dyn)))
+set_p = np.append(np.zeros(int(T4wait / DT)), set_p).astype(float)
+set_v = np.append(np.zeros(int(T4wait / DT)), set_v).astype(float)
+set_a = np.append(np.zeros(int(T4wait / DT)), set_a).astype(float)
+
+set_p = np.append(
+    set_p, y1 * np.ones(len(t4move) - len(t4dyn) - int(T4wait / DT))
+).astype(float)
+set_v = np.append(set_v, np.zeros(len(t4move) - len(t4dyn) - int(T4wait / DT))).astype(
+    float
+)
+set_a = np.append(set_a, np.zeros(len(t4move) - len(t4dyn) - int(T4wait / DT))).astype(
+    float
+)
 
 """计算PS响应"""
 identity_tf = TransferFunc([1], [1], DT)
@@ -208,7 +226,7 @@ datalog["pid_output"] = np.zeros_like(set_p, dtype=float)
 datalog["f_k"] = np.zeros_like(set_p, dtype=float)
 datalog["plant_input"] = np.zeros_like(set_p, dtype=float)
 print("Total Samples:", len(set_p))
-for k in range(10):
+for k in range(15):
     p_fbk = 0
     sys_ss.reset()
     pid_controller.reset()
@@ -223,7 +241,7 @@ for k in range(10):
 
         plant_input = pid_output + f_k[i]
         p_fbk, x_state = sys_ss.response(
-            plant_input, method="zoh2"
+            plant_input, method="linear"
         )  # +random.normal()/4/5
         p_fbk = p_fbk[0, 0]
 
