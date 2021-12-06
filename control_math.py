@@ -181,7 +181,7 @@ class StateSpaceModel(object):
             x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(last_u)
             self.y_output = self.C.dot(x_state) + self.D.dot(last_u)
         if method == "zoh2":  # lsim解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
-            from scipy.signal import lsim, lsim2, step
+            from scipy.signal import lsim, lsim2, step, impulse
 
             # from control import forced_response
 
@@ -201,6 +201,15 @@ class StateSpaceModel(object):
         self.last_u = u
         self.x_state = x_state
         return self.y_output, x_state
+
+    def impulse(self, t):
+        y_output = np.zeros_like(t)
+        A = self.A
+        B = self.B
+        C = self.C
+        for i in range(len(t)):
+            y_output[i] = (C.dot(expm(A) * t[i]).dot(B))[0, 0]
+        return y_output
 
     def reset(self):
         self.__init__(self.A, self.B, self.C, self.D, self.dt)

@@ -43,6 +43,7 @@ den = np.convolve(res_den, plant_den.flatten())
 A, B, C, D = tf2ss(num, den)
 sys_ss = StateSpaceModel(A, B, C, D, DT)
 sys_tf = TransferFunc(num, den, DT)
+# sys_tf = TransferFunc(res_num, res_den, DT)
 
 """Chirp信号初始化"""
 start_freq = 10
@@ -146,7 +147,7 @@ pid_tf = TransferFunc([kd, kp, ki], [1, 0], DT)
 
 
 # SPG
-T4wait = 10 * DT
+T4wait = 1 * DT
 T4dyn = 0.03
 T4settling = 0.03
 T4move = T4wait + T4dyn + T4settling
@@ -183,38 +184,69 @@ set_a = np.append(set_a, np.zeros(len(t4move) - len(t4dyn) - int(T4wait / DT))).
 )
 
 """计算PS响应"""
-identity_tf = TransferFunc([1], [1], DT)
-closed_loop_tf = pid_tf * sys_tf / (identity_tf + pid_tf * sys_tf)
-ps_tf = sys_tf / (identity_tf + pid_tf * sys_tf)
-# ps_inv_tf = pid_tf + identity_tf / sys_tf
-# ps_inv_tf_scipy = scipy.signal.TransferFunction(ps_inv_tf.num, ps_inv_tf.den)
+# identity_tf = TransferFunc([1], [1], DT)
+# closed_loop_tf = pid_tf * sys_tf / (identity_tf + pid_tf * sys_tf)
+# ps_tf = sys_tf / (identity_tf + pid_tf * sys_tf)
+# # ps_inv_tf = pid_tf + identity_tf / sys_tf
+# # ps_inv_tf_scipy = scipy.signal.TransferFunction(ps_inv_tf.num, ps_inv_tf.den)
+#
+# T4ir = T4move
+# t4ir = np.arange(DT, T4ir + DT, DT)
+# # t4ir = np.arange(0, T4ir, DT)
+# t4ir, process_sensitivity_ir = impulse(
+#     (ps_tf.num, ps_tf.den),
+#     T=t4ir,
+# )
 
-T4ir = T4move
-t4ir = np.arange(DT, T4ir + DT, DT)
-# t4ir = np.arange(0, T4ir, DT)
-t4ir, process_sensitivity_ir = impulse(
-    (ps_tf.num, ps_tf.den),
-    T=t4ir,
+from scipy import signal
+import control as ctrl
+
+iden_tf_ctrl = ctrl.TransferFunction([1], [1])
+# sys_tf_ctrl = ctrl.TransferFunction(res_num, res_den)
+sys_tf_ctrl = ctrl.TransferFunction(sys_tf.num, sys_tf.den)
+pid_tf_ctrl = ctrl.TransferFunction(pid_tf.num, pid_tf.den)
+ps_ctrl = sys_tf_ctrl / (iden_tf_ctrl + sys_tf_ctrl * pid_tf_ctrl)
+t4move, process_sensitivity_ir = signal.impulse(
+    (ps_ctrl.num[0][0], ps_ctrl.den[0][0]), T=np.arange(0, 0.5, DT)
 )
-# process_sensitivity_ir = process_sensitivity_ir
-# for i in range(len(process_sensitivity_ir)):
-#     if process_sensitivity_ir[i] <= 0:
-#         process_sensitivity_ir[i] = 0
-#     else:
-#         break
-process_sensitivity_ir = np.roll(process_sensitivity_ir, 1)
-process_sensitivity_ir[0] = 0
+# t4move = np.arange(0, T4move, DT)
+
+process_sensitivity_ir = process_sensitivity_ir / SERVO_FREQ
+# process_sensitivity_ir = np.zeros_like(set_p)
+# impulse_signal = np.zeros_like(set_p)
+# impulse_signal[0] = 1
+# p_fbk = 0
+#
+# sys_ss.reset()
+# pid_controller.reset()
+#
+# for i in range(len(set_p)):
+#     if i % 1000 == 0:
+#         print(k + 1, i)
+#     err = 0 - p_fbk
+#     pid_output = pid_controller.response(err)
+#
+#     plant_input = pid_output + impulse_signal[i]
+#     p_fbk, x_state = sys_ss.response(plant_input, method="zoh2")  # +random.normal()/4/5
+#     process_sensitivity_ir[i] = p_fbk[0, 0]
+
 ps_response_mat = np.mat(
     toeplitz(process_sensitivity_ir, np.zeros_like(process_sensitivity_ir)), dtype=float
 )
 ps_pinv_mat = np.linalg.pinv(ps_response_mat)
 
-plt.figure()
-plt.plot(t4ir, process_sensitivity_ir)
+# plt.figure()
+# plt.plot(t4move, process_sensitivity_ir)
+
+
+np.save("process_sensitivity_ir.npy", process_sensitivity_ir)
+np.save("ps_response_mat.npy", ps_response_mat)
+np.save("ps_pinv_mat.npy", ps_pinv_mat)
+
 
 # Filter
-# Q_num, Q_den = butter(3, 1000, "low", analog=True)
-Q_num, Q_den = ([1], [1])
+Q_num, Q_den = butter(3, 5000, "low", analog=True)
+# Q_num, Q_den = ([1], [1])
 butter_filter = scipy.signal.TransferFunction(Q_num, Q_den)
 
 # iteration
@@ -226,7 +258,7 @@ datalog["pid_output"] = np.zeros_like(set_p, dtype=float)
 datalog["f_k"] = np.zeros_like(set_p, dtype=float)
 datalog["plant_input"] = np.zeros_like(set_p, dtype=float)
 print("Total Samples:", len(set_p))
-for k in range(15):
+for k in range(3):
     p_fbk = 0
     sys_ss.reset()
     pid_controller.reset()
@@ -241,7 +273,7 @@ for k in range(15):
 
         plant_input = pid_output + f_k[i]
         p_fbk, x_state = sys_ss.response(
-            plant_input, method="linear"
+            plant_input, method="zoh2"
         )  # +random.normal()/4/5
         p_fbk = p_fbk[0, 0]
 
@@ -250,7 +282,6 @@ for k in range(15):
         datalog["pid_output"][i] = pid_output
         datalog["plant_input"][i] = plant_input
     datalog["f_k"] = f_k
-    plant_input_list = datalog["plant_input"]
     # current plant in as next ffc
     # Le = np.zeros_like(set_p)
     # Le_after_Q = np.zeros_like(set_p)
@@ -270,11 +301,11 @@ for k in range(15):
     # t4move, Le, x_out = lsim2(ps_inv_tf_scipy, datalog["err"], t4move)
 
     # without Q
-    plant_input_list_after_Q = plant_input_list
+    f_k_after_Q = f_k
     # with Q
-    # t4move, f_k_after_Q, x_out = lsim(butter_filter, plant_input_list, t4move)
+    # t4move, f_k_after_Q, x_out = lsim(butter_filter, f_k, t4move)
 
-    f_kp1 = plant_input_list_after_Q + Le
+    f_kp1 = f_k_after_Q + Le
 
     fig, axs = plt.subplots(4, 2, figsize=(12, 12))
     fig.suptitle("Iteration " + str(k + 1))
@@ -289,11 +320,11 @@ for k in range(15):
     axs[1, 1].legend(loc="upper left")
     axs[2, 0].plot(t4move, Le, label="Le")
     axs[2, 0].legend(loc="upper left")
-    axs[2, 1].plot(t4move, plant_input_list_after_Q, label="plant_input_list aft Q")
+    axs[2, 1].plot(t4move, f_k_after_Q, label="f_k_after_Q")
     axs[2, 1].legend(loc="upper left")
-    axs[3, 0].plot(t4move, plant_input_list, label="plant_input_list")
+    axs[3, 0].plot(t4move, datalog["plant_input"], label="plant_input")
     axs[3, 0].legend(loc="upper left")
-    axs[3, 1].plot(t4move, f_kp1, label="f_k+1 (aft Q)")
+    axs[3, 1].plot(t4move, f_kp1, label="f_k+1 (f_k aft Q)")
     axs[3, 1].legend(loc="upper left")
     # plt.show()
 
