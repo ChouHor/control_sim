@@ -148,7 +148,7 @@ class StateSpaceModel(object):
         try:
             self.expM_zoh_u = np.linalg.inv(A).dot(self.expM_zoh_x - identity).dot(B)
         except:
-            self.expM_zoh_u = None
+            self.expM_zoh_u = B * dt
         n_inputs = self.B.shape[1]
         M_linear = np.block(
             [
@@ -179,21 +179,37 @@ class StateSpaceModel(object):
         x_state = self.x_state
         if method == "zoh":  # 教科书的解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
             x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(last_u)
+            self.y_output = self.C.dot(x_state) + self.D.dot(last_u)
         if method == "zoh2":  # lsim解法，输入为上一拍的step，延时半拍，可用于模拟带有零阶保持器的系统
+            from scipy.signal import lsim, lsim2, step, impulse
+
+            # from control import forced_response
+
             x_state = np.dot(self.Ad_step, x_state) + np.dot(self.Bd1_step, last_u)
+            self.y_output = self.C.dot(x_state) + self.D.dot(last_u)
         if method == "interp":  # 输入为当前拍和上一拍的平均值的step，没有延时
             u_mean = (last_u + u) / 2
             x_state = self.expM_zoh_x.dot(x_state) + self.expM_zoh_u.dot(u_mean)
+            self.y_output = self.C.dot(x_state) + self.D.dot(u_mean)
         elif method == "linear":  # 三角形保持器，forced_response解法，没有延时
             x_state = (
                 np.dot(self.Ad_linear, x_state)
                 + np.dot(self.Bd0_linear, last_u)
                 + np.dot(self.Bd1_linear, u)
             )
+            self.y_output = self.C.dot(x_state) + self.D.dot(u)
         self.last_u = u
         self.x_state = x_state
-        self.y_output = self.C.dot(x_state) + self.D.dot(u)
         return self.y_output, x_state
+
+    def impulse(self, t):
+        y_output = np.zeros_like(t)
+        A = self.A
+        B = self.B
+        C = self.C
+        for i in range(len(t)):
+            y_output[i] = (C.dot(expm(A) * t[i]).dot(B))[0, 0]
+        return y_output
 
     def reset(self):
         self.__init__(self.A, self.B, self.C, self.D, self.dt)
@@ -237,17 +253,16 @@ def dft(freq, data, dt):
     sine_wave = np.sin(2 * np.pi * freq * t)
     real = np.sum(np.multiply(data, cos_wave))
     imagine = np.sum(np.multiply(data, sine_wave))
-    return real + 1j * imagine
+    return real - 1j * imagine
 
 
 def dft_slow(src_data):
-    num = len(src_data) - 1
+    num = len(src_data)
     fw = np.zeros(num, dtype=complex)
     for k in range(num):
         for _n in range(num):
-            fw[k] += src_data[_n] * np.e ** (1j * 2 * np.pi / num * _n * k)
-    gain = [abs(_) for _ in fw]
-    return gain
+            fw[k] += src_data[_n] * np.e ** (-1j * 2 * np.pi / num * _n * k)
+    return fw
 
 
 def dft_vectorized(x):
