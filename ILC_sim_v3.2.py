@@ -148,10 +148,10 @@ pid_tf = TransferFunc([kd, kp, ki], [1, 0], DT)
 
 # SPG
 T4wait = 1 * DT
-T4dyn = 0.03
+T4dyn = 0.5
 T4settling = 0.03
 T4move = T4wait + T4dyn + T4settling
-y1 = 0.005
+y1 = 0.5
 sol = solve(
     [
         a * T4dyn ** 5 + b * T4dyn ** 4 + c * T4dyn ** 3 - y1,
@@ -201,47 +201,55 @@ set_a = np.append(set_a, np.zeros(len(t4move) - len(t4dyn) - int(T4wait / DT))).
 from scipy import signal
 import control as ctrl
 
+
+def inverse_toeplitz(an):
+    bn = np.zeros_like(an, dtype=float)
+    a0 = an[0]
+    bn[0] = 1 / a0
+    an_flip = np.flip(an)
+    for i in range(1, len(bn)):
+        bn[i] = -sum(bn[0:i] * an_flip[-i - 1 : -1]) / a0
+    return bn
+
+
 iden_tf_ctrl = ctrl.TransferFunction([1], [1])
 # sys_tf_ctrl = ctrl.TransferFunction(res_num, res_den)
 sys_tf_ctrl = ctrl.TransferFunction(sys_tf.num, sys_tf.den)
 pid_tf_ctrl = ctrl.TransferFunction(pid_tf.num, pid_tf.den)
 ps_ctrl = sys_tf_ctrl / (iden_tf_ctrl + sys_tf_ctrl * pid_tf_ctrl)
 t4move, process_sensitivity_ir = signal.impulse(
-    (ps_ctrl.num[0][0], ps_ctrl.den[0][0]), T=np.arange(0, T4move, DT)
+    (ps_ctrl.num[0][0], ps_ctrl.den[0][0]), T=np.arange(DT, T4move + DT, DT)
 )
 # t4move = np.arange(0, T4move, DT)
 
 process_sensitivity_ir = process_sensitivity_ir / SERVO_FREQ
-# process_sensitivity_ir = np.zeros_like(set_p)
-# impulse_signal = np.zeros_like(set_p)
-# impulse_signal[0] = 1
-# p_fbk = 0
-#
-# sys_ss.reset()
-# pid_controller.reset()
-#
-# for i in range(len(set_p)):
-#     if i % 1000 == 0:
-#         print(k + 1, i)
-#     err = 0 - p_fbk
-#     pid_output = pid_controller.response(err)
-#
-#     plant_input = pid_output + impulse_signal[i]
-#     p_fbk, x_state = sys_ss.response(plant_input, method="zoh2")  # +random.normal()/4/5
-#     process_sensitivity_ir[i] = p_fbk[0, 0]
 
-ps_response_mat = np.mat(
-    toeplitz(process_sensitivity_ir, np.zeros_like(process_sensitivity_ir)), dtype=float
-)
-ps_pinv_mat = np.linalg.pinv(ps_response_mat)
+import time
 
+# T1 = time.time()
+# ps_response_mat = np.mat(
+#     toeplitz(process_sensitivity_ir, np.zeros_like(process_sensitivity_ir)), dtype=float
+# )
+# ps_pinv_mat2 = np.linalg.pinv(ps_response_mat)
+# T2 = time.time()
+# print("直接求逆", T2 - T1, "秒")
+
+T1 = time.time()
+ps_pinv_t = inverse_toeplitz(process_sensitivity_ir)
+ps_pinv_mat = np.mat(toeplitz(ps_pinv_t, np.zeros_like(ps_pinv_t)))
+ps_pinv_mat = np.mat(np.roll(np.array(ps_pinv_mat), 2))
+ps_pinv_mat[:, 0:2] = 0
+ps_pinv_mat[-2:, :] = 0
+T2 = time.time()
+print("迭代求逆", T2 - T1, "秒")
+# print(np.allclose(ps_pinv_mat, ps_pinv_mat2))
 # plt.figure()
 # plt.plot(t4move, process_sensitivity_ir)
 
 
-np.save("process_sensitivity_ir.npy", process_sensitivity_ir)
-np.save("ps_response_mat.npy", ps_response_mat)
-np.save("ps_pinv_mat.npy", ps_pinv_mat)
+# np.save("process_sensitivity_ir.npy", process_sensitivity_ir)
+# np.save("ps_response_mat.npy", ps_response_mat)
+# np.save("ps_pinv_mat.npy", ps_pinv_mat)
 
 
 # Filter
@@ -258,7 +266,20 @@ datalog["pid_output"] = np.zeros_like(set_p, dtype=float)
 datalog["f_k"] = np.zeros_like(set_p, dtype=float)
 datalog["plant_input"] = np.zeros_like(set_p, dtype=float)
 print("Total Samples:", len(set_p))
-for k in range(3):
+
+plant_acc_tf = TransferFunc(
+    res_omega ** 2
+    / anti_res_omega ** 2
+    * np.array([1, 2 * beta1 * anti_res_omega, anti_res_omega ** 2]),
+    np.array([1, 2 * beta2 * res_omega, res_omega ** 2]),
+    DT,
+)
+
+# plant_acc_tf = TransferFunc([0.045, 0.4, 2200], [0.000675, 0.024, 132], DT)
+a2p_tf = TransferFunc([1], [1, 0, 0], DT)
+plant_pos_tf = a2p_tf * plant_acc_tf
+
+for k in range(15):
     p_fbk = 0
     sys_ss.reset()
     pid_controller.reset()

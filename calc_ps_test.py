@@ -58,15 +58,15 @@ res_den = np.array([1, 2 * beta2 * res_omega, res_omega ** 2])
 
 
 # process_sensitivity_ir = np.load("process_sensitivity_ir.npy")
-ps_response_mat = np.load("ps_response_mat.npy")
-ps_pinv_mat = np.load("ps_pinv_mat.npy")
+# ps_response_mat = np.load("ps_response_mat.npy")
+# ps_pinv_mat = np.load("ps_pinv_mat.npy")
 # ps_s = fft(process_sensitivity_ir)
 # plt.figure()
 # plt.plot(20 * np.log10(np.abs(ps_s)))
 # ps_inv_s = 1 / ps_s
 # ps_inv = np.real(ifft(ps_inv_s))
 
-data_len = 10000
+data_len = 100000
 T = data_len / SERVO_FREQ
 delta_omega = 2 * np.pi / T
 
@@ -76,24 +76,24 @@ ps_tf = ctrl.tf(ps_num, ps_den)
 ps_inv_tf = ctrl.tf(ps_den, ps_num)
 # ps_tf = ctrl.tf(res_num, res_den)
 t, process_sensitivity_ir = signal.impulse(
-    (ps_tf.num[0][0], ps_tf.den[0][0]), T=np.arange(0, T, DT)
+    (ps_tf.num[0][0], ps_tf.den[0][0]), T=np.arange(DT, T + DT, DT)
 )
 process_sensitivity_ir = process_sensitivity_ir / SERVO_FREQ
 
-# omega = delta_omega * np.arange(-int(data_len / 2), int(data_len / 2))
-# omega = np.arange(delta_omega, delta_omega + int(data_len) * delta_omega, delta_omega)
-omega1 = delta_omega * np.arange(1, int(data_len / 2))
-omega2 = delta_omega * np.arange(-int(data_len / 2), 0)
-# ps_bode_point = ps_tf(1j * omega)
-ps_bode_point1 = ps_tf(1j * omega1)
-ps_bode_point2 = ps_tf(1j * omega2)
-ps_bode_point = np.hstack((1e-18j, ps_bode_point1, ps_bode_point2))
-ps_inv_bode_point = 1 / ps_bode_point
+# # omega = delta_omega * np.arange(-int(data_len / 2), int(data_len / 2))
+# # omega = np.arange(delta_omega, delta_omega + int(data_len) * delta_omega, delta_omega)
+# omega1 = delta_omega * np.arange(1, int(data_len / 2))
+# omega2 = delta_omega * np.arange(-int(data_len / 2), 0)
+# # ps_bode_point = ps_tf(1j * omega)
+# ps_bode_point1 = ps_tf(1j * omega1)
+# ps_bode_point2 = ps_tf(1j * omega2)
+# ps_bode_point = np.hstack((1e-18j, ps_bode_point1, ps_bode_point2))
+# ps_inv_bode_point = 1 / ps_bode_point
 # ps_inv_t = np.real(ifft(ps_inv_bode_point))
-ps_t = np.real(ifft(ps_bode_point))
+# ps_t = np.real(ifft(ps_bode_point))
 
-process_sensitivity_ir_temp = np.roll(process_sensitivity_ir, -1)
-ps_inv_t = np.real(ifft(1 / fft(process_sensitivity_ir_temp)))
+# process_sensitivity_ir_temp = np.roll(process_sensitivity_ir, -1)
+ps_inv_t = np.real(ifft(1 / fft(process_sensitivity_ir)))
 
 # ps_response_mat = np.mat(
 #     toeplitz(process_sensitivity_ir, np.zeros_like(process_sensitivity_ir)), dtype=float
@@ -109,19 +109,20 @@ ps_inv_t = np.real(ifft(1 / fft(process_sensitivity_ir_temp)))
 # np.save("ps_pinv_mat.npy", ps_pinv_mat)
 
 
-plt.figure()
-plt.plot(ps_t, label="ifft")
-plt.plot(process_sensitivity_ir, label="ir")
-plt.figure()
-plt.plot(ps_inv_t, label="ifft")
-plt.plot(ps_pinv_mat[:, 1], label="pinv")
-# plt.plot(20 * np.log10(np.abs(ps_inv_s)))
-# plt.plot(process_sensitivity_ir)
-plt.legend()
-
 # plt.figure()
-# plt.plot(20 * np.log10(np.abs(ps_bode_point)))
+# plt.plot(ps_t, label="ifft")
+# plt.plot(process_sensitivity_ir, label="ir")
 # plt.figure()
-# plt.plot(np.angle(ps_bode_point, deg=True))
-
-plt.show()
+# plt.plot(ps_inv_t, label="ifft")
+# # plt.plot(ps_pinv_mat[:, 1], label="pinv")
+# # plt.plot(20 * np.log10(np.abs(ps_inv_s)))
+# # plt.plot(process_sensitivity_ir)
+# plt.legend()
+#
+# # plt.figure()
+# # plt.plot(20 * np.log10(np.abs(ps_bode_point)))
+# # plt.figure()
+# # plt.plot(np.angle(ps_bode_point, deg=True))
+#
+# plt.show()
+print(ps_inv_t)
