@@ -38,7 +38,7 @@ ss = StateSpaceModel(A, B, C, D, DT)
 
 """Chirp参数"""
 start_freq = 50
-end_freq = 5000
+end_freq = 5100
 start_freq_ = 0.8 * start_freq
 end_freq_ = 1.1 * end_freq
 # 扫频时间
@@ -57,7 +57,7 @@ u = np.sin(2 * np.pi * ((end_freq_ - start_freq_) / T * t ** 2 / 2 + start_freq_
 y = np.zeros_like(u)
 for i in range(len(u)):
     input_sig = u[i]
-    y_output, x_state = ss.response(input_sig, method="zoh")
+    y_output, x_state = ss.response(input_sig, method="linear")
     y[i] = y_output
 p = y
 y = np.diff(y, 2) / DT / DT

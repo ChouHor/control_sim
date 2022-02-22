@@ -1,0 +1,64 @@
+;start_character;test1.py;end_character;
+import numpy as np
+
+print(1)
+;start_character;test2.py;end_character;
+import numpy as np
+
+print(1)
+;start_character;test3.py;end_character;
+import numpy as np
+
+print(1)
+;start_character;llllllllllllllllllllllllllllllllllllllllll.py;end_character;
+def get_text_file(filename):
+    f = open(filename, "r")
+    _content = f.read()
+    f.close()
+    return _content
+
+
+all_content = get_text_file("all_content.txt")
+contents = all_content.split(";start_character;")[1:]
+num = len(contents)
+for i in range(num - 1):
+    if i < num - 2:
+        content = contents[i]
+        file_contents = content.split((";end_character;\n"))
+
+    else:
+        content = contents[i]
+        file_contents = content.split((";end_character;\n"))
+        file_contents[1] = file_contents[1] + contents[i + 1]
+    file_name = "1" + file_contents[0]
+
+    file_content = file_contents[1]
+
+    fh = open(file_name, "w", encoding="utf-8")
+    fh.write(file_content)
+    fh.close()
+;start_character;lllllllllllllllllllllllllllllllllllllllllll.py;end_character;
+import os
+
+
+def get_text_file(filename):
+    f = open(filename, "r")
+    _content = f.read()
+    f.close()
+    return _content
+
+
+path = os.getcwd()
+files = os.listdir(path)
+files.sort(key=len)
+all_content = ""
+for file_name in files:
+    if file_name[-3:] == ".py":
+        start_character = ";start_character;" + file_name + ";end_character;\n"
+        content = get_text_file(file_name)
+        new_content = start_character + content
+        all_content = all_content + new_content
+
+fh = open("all_content.txt", "w", encoding="utf-8")
+fh.write(all_content)
+fh.close()
